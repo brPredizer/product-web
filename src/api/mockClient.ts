@@ -1,14 +1,21 @@
 const isBrowser = typeof window !== 'undefined';
 const STORAGE_KEY = 'predictx_mock_state_v1';
 
-const deepClone = (value) => {
+const deepClone = <T>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);
   }
   return JSON.parse(JSON.stringify(value));
 };
 
-const defaultState = {
+type AnyRecord = Record<string, any>;
+type EntityStore = Record<string, AnyRecord[]>;
+type LogEntry = { id: string; page: string; user_id: string | null; created_at: string };
+type AuthState = { currentUserId: string | null; lastLoginRedirect: string | null };
+type AppSettings = { id: string; public_settings: { auth_required: boolean; name: string; marketing_site: string } };
+type State = { auth: AuthState; app: AppSettings; logs: LogEntry[]; entities: EntityStore };
+
+const defaultState: State = {
   auth: {
     currentUserId: 'user-1',
     lastLoginRedirect: null
@@ -295,18 +302,18 @@ const defaultState = {
   }
 };
 
-const createHttpError = (message, status = 500) => {
-  const error = new Error(message);
+const createHttpError = (message: string, status = 500) => {
+  const error = new Error(message) as Error & { status?: number };
   error.status = status;
   return error;
 };
 
-const readPersistedState = () => {
+const readPersistedState = (): State => {
   if (!isBrowser) return deepClone(defaultState);
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return deepClone(defaultState);
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<State>;
     return {
       ...deepClone(defaultState),
       ...parsed,
@@ -318,9 +325,9 @@ const readPersistedState = () => {
   }
 };
 
-let state = readPersistedState();
+let state: State = readPersistedState();
 
-const persistState = () => {
+const persistState = (): void => {
   if (!isBrowser) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -329,24 +336,24 @@ const persistState = () => {
   }
 };
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const simulateNetwork = async (fn) => {
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const simulateNetwork = async <T>(fn: () => T): Promise<T> => {
   if (isBrowser) {
     await sleep(40 + Math.random() * 80);
   }
   return fn();
 };
 
-const ensureEntityStore = (entityName) => {
+const ensureEntityStore = (entityName: string): AnyRecord[] => {
   if (!state.entities[entityName]) {
     state.entities[entityName] = [];
   }
   return state.entities[entityName];
 };
 
-const generateId = (entityName) => `${entityName.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
+const generateId = (entityName: string): string => `${entityName.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
 
-const compareValues = (a, b) => {
+const compareValues = (a: any, b: any): number => {
   if (a === b) return 0;
   if (a === undefined || a === null) return -1;
   if (b === undefined || b === null) return 1;
@@ -359,14 +366,14 @@ const compareValues = (a, b) => {
   return String(a).localeCompare(String(b));
 };
 
-const sortItems = (items, sortBy) => {
+const sortItems = (items: AnyRecord[], sortBy?: string | null): AnyRecord[] => {
   if (!sortBy) return [...items];
   const direction = sortBy.startsWith('-') ? -1 : 1;
   const field = sortBy.startsWith('-') ? sortBy.slice(1) : sortBy;
   return [...items].sort((a, b) => compareValues(a[field], b[field]) * direction);
 };
 
-const matchesCriteria = (item, criteria = {}) => {
+const matchesCriteria = (item: AnyRecord, criteria: AnyRecord = {}): boolean => {
   return Object.entries(criteria).every(([key, value]) => {
     if (value === undefined || value === null) return true;
     const current = item[key];
@@ -380,7 +387,7 @@ const matchesCriteria = (item, criteria = {}) => {
   });
 };
 
-const queryEntities = (entityName, criteria, sortBy, limit = 50) => {
+const queryEntities = (entityName: string, criteria?: AnyRecord | null, sortBy?: string | null, limit = 50): AnyRecord[] => {
   const store = ensureEntityStore(entityName);
   let result = criteria ? store.filter((item) => matchesCriteria(item, criteria)) : [...store];
   result = sortItems(result, sortBy);
@@ -390,10 +397,10 @@ const queryEntities = (entityName, criteria, sortBy, limit = 50) => {
   return deepClone(result);
 };
 
-const createEntityItem = (entityName, data) => {
+const createEntityItem = (entityName: string, data: AnyRecord = {}): AnyRecord => {
   const now = new Date().toISOString();
   const store = ensureEntityStore(entityName);
-  const item = {
+  const item: AnyRecord = {
     id: data?.id || generateId(entityName),
     created_date: data?.created_date || now,
     updated_date: now,
@@ -404,7 +411,7 @@ const createEntityItem = (entityName, data) => {
   return deepClone(item);
 };
 
-const updateEntityItem = (entityName, id, data) => {
+const updateEntityItem = (entityName: string, id: string, data: AnyRecord): AnyRecord => {
   const store = ensureEntityStore(entityName);
   const index = store.findIndex((item) => item.id === id);
   if (index === -1) {
@@ -419,7 +426,7 @@ const updateEntityItem = (entityName, id, data) => {
   return deepClone(store[index]);
 };
 
-const deleteEntityItem = (entityName, id) => {
+const deleteEntityItem = (entityName: string, id: string): boolean => {
   const store = ensureEntityStore(entityName);
   const index = store.findIndex((item) => item.id === id);
   if (index === -1) return false;
@@ -428,16 +435,24 @@ const deleteEntityItem = (entityName, id) => {
   return true;
 };
 
-const entitiesProxyCache = new Map();
+type EntityHandlers = {
+  list: (sortBy?: string | null, limit?: number) => Promise<AnyRecord[]>;
+  filter: (criteria?: AnyRecord | null, sortBy?: string | null, limit?: number) => Promise<AnyRecord[]>;
+  create: (data: AnyRecord) => Promise<AnyRecord>;
+  update: (id: string, data: AnyRecord) => Promise<AnyRecord>;
+  delete: (id: string) => Promise<boolean>;
+};
 
-const getEntityHandlers = (entityName) => {
+const entitiesProxyCache = new Map<string, EntityHandlers>();
+
+const getEntityHandlers = (entityName: string): EntityHandlers => {
   if (entitiesProxyCache.has(entityName)) {
-    return entitiesProxyCache.get(entityName);
+    return entitiesProxyCache.get(entityName)!;
   }
 
-  const handlers = {
+  const handlers: EntityHandlers = {
     list: (sortBy, limit = 50) => simulateNetwork(() => queryEntities(entityName, null, sortBy, limit)),
-    filter: (criteria, sortBy, limit = 50) => simulateNetwork(() => queryEntities(entityName, criteria, sortBy, limit)),
+    filter: (criteria, sortBy, limit = 50) => simulateNetwork(() => queryEntities(entityName, criteria || undefined, sortBy, limit)),
     create: (data) => simulateNetwork(() => createEntityItem(entityName, data)),
     update: (id, data) => simulateNetwork(() => updateEntityItem(entityName, id, data)),
     delete: (id) => simulateNetwork(() => deleteEntityItem(entityName, id))
@@ -447,13 +462,13 @@ const getEntityHandlers = (entityName) => {
   return handlers;
 };
 
-const getCurrentUser = () => {
+const getCurrentUser = (): AnyRecord | null => {
   if (!state.auth.currentUserId) return null;
   const users = ensureEntityStore('User');
   return users.find((u) => u.id === state.auth.currentUserId) || null;
 };
 
-const loginDefaultUser = () => {
+const loginDefaultUser = (): AnyRecord | null => {
   const fallbackId = state.auth.currentUserId || defaultState.auth.currentUserId || ensureEntityStore('User')[0]?.id;
   if (!fallbackId) return null;
   state.auth.currentUserId = fallbackId;
@@ -461,13 +476,13 @@ const loginDefaultUser = () => {
   return deepClone(getCurrentUser());
 };
 
-const emitAuthEvent = () => {
+const emitAuthEvent = (): void => {
   if (isBrowser) {
     window.dispatchEvent(new CustomEvent('predictx:auth-changed'));
   }
 };
 
-const mockLLMResponse = async ({ prompt }) => {
+const mockLLMResponse = async ({ prompt }: { prompt?: string }): Promise<Record<string, any>> => {
   const lowerPrompt = (prompt || '').toLowerCase();
 
   if (lowerPrompt.includes('segmenta')) {
@@ -588,7 +603,7 @@ const mockLLMResponse = async ({ prompt }) => {
 
 export const mockApi = {
   entities: new Proxy({}, {
-    get: (_, entityName) => getEntityHandlers(entityName)
+    get: (_, entityName: string) => getEntityHandlers(entityName)
   }),
   auth: {
     me: () => simulateNetwork(() => {
@@ -598,7 +613,7 @@ export const mockApi = {
       }
       return deepClone(user);
     }),
-    updateMe: (data) => simulateNetwork(() => {
+    updateMe: (data: AnyRecord) => simulateNetwork(() => {
       const user = getCurrentUser();
       if (!user) {
         throw createHttpError('No user logged in', 401);
@@ -607,7 +622,7 @@ export const mockApi = {
       emitAuthEvent();
       return updated;
     }),
-    logout: (redirectUrl) => simulateNetwork(() => {
+    logout: (redirectUrl?: string | null) => simulateNetwork(() => {
       state.auth.lastLoginRedirect = redirectUrl || null;
       state.auth.currentUserId = null;
       persistState();
@@ -624,7 +639,7 @@ export const mockApi = {
     })
   },
   appLogs: {
-    logUserInApp: (pageName) => simulateNetwork(() => {
+    logUserInApp: (pageName: string) => simulateNetwork(() => {
       state.logs.push({
         id: generateId('log'),
         page: pageName,
@@ -640,14 +655,14 @@ export const mockApi = {
   },
   integrations: {
     Core: {
-      InvokeLLM: (payload) => simulateNetwork(() => mockLLMResponse(payload || {}))
+      InvokeLLM: (payload?: Record<string, any>) => simulateNetwork(() => mockLLMResponse(payload || {}))
     }
   }
 };
 
-export const mockPublicSettings = deepClone(defaultState.app);
+export const mockPublicSettings: AppSettings = deepClone(defaultState.app);
 
-export const resetMockState = () => {
+export const resetMockState = (): void => {
   state = deepClone(defaultState);
   persistState();
 };
