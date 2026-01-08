@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
+import { authClient } from "@/api/auth";
 import { mockApi } from "@/api/mockClient";
 import { createPageUrl } from "@/utils";
 
@@ -94,7 +95,7 @@ export default function Market({ user, refreshUser }) {
 
       // Update user balance
       const newBalance = (user.balance || 0) - amount;
-      await mockApi.auth.updateMe({
+      await authClient.updateUser({
         balance: newBalance,
         total_wagered: (user.total_wagered || 0) + amount,
         markets_participated: (user.markets_participated || 0) + 1,
@@ -452,3 +453,4 @@ export default function Market({ user, refreshUser }) {
     </div>
   );
 }
+

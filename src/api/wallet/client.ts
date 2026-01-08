@@ -1,0 +1,192 @@
+import { apiRequest, createIdempotencyKey, type RequestOptions } from '@/api/api';
+import { authClient } from '@/api/auth';
+
+type WalletBalance = {
+  currency: string;
+  balance: number;
+  available: number;
+};
+
+type LedgerEntry = {
+  id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  referenceType?: string;
+  referenceId?: string;
+  idempotencyKey?: string;
+  createdAt?: string;
+  status?: string;
+  description?: string;
+};
+
+type LedgerListResponse = {
+  entries: LedgerEntry[];
+  nextCursor: string | null;
+};
+
+type AmountRequest = {
+  amount: number;
+};
+
+const toCents = (value: number) => Math.round(Number(value || 0) * 100);
+const fromCents = (value: number) => Number(value || 0) / 100;
+const toAmountRequest = (value: number): AmountRequest => ({ amount: toCents(value) });
+
+const requestWithAuth = async <T>(path: string, options: RequestOptions = {}) => {
+  const { accessToken, refreshToken } = authClient.getSession();
+  const headers = {
+    ...(options.headers || {}),
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+  };
+
+  try {
+    return await apiRequest<T>(path, { ...options, headers });
+  } catch (error: any) {
+    if (error?.status === 401 && refreshToken) {
+      await authClient.refresh();
+      const { accessToken: newToken } = authClient.getSession();
+      const retryHeaders = {
+        ...(options.headers || {}),
+        ...(newToken ? { Authorization: `Bearer ${newToken}` } : {})
+      };
+      return apiRequest<T>(path, { ...options, headers: retryHeaders });
+    }
+    throw error;
+  }
+};
+
+const getBalances = async (): Promise<WalletBalance[]> => {
+  const data = await requestWithAuth<WalletBalance[]>('/wallet/balances');
+  return (data || []).map((item) => ({
+    ...item,
+    balance: fromCents(item.balance),
+    available: fromCents(item.available)
+  }));
+};
+
+const getLedger = async ({
+  cursor,
+  limit
+}: {
+  cursor?: string | null;
+  limit?: number;
+} = {}): Promise<LedgerListResponse> => {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  const data = await requestWithAuth<LedgerListResponse>(
+    query ? `/wallet/ledger?${query}` : '/wallet/ledger'
+  );
+
+  return {
+    entries: (data?.entries || []).map((entry) => ({
+      ...entry,
+      amount: fromCents(entry.amount)
+    })),
+    nextCursor: data?.nextCursor ?? null
+  };
+};
+
+const createDepositIntent = async ({
+  amount,
+  idempotencyKey
+}: {
+  amount: number;
+  idempotencyKey?: string;
+}) => {
+  const headerKey = idempotencyKey || createIdempotencyKey();
+  return requestWithAuth('/wallet/deposits/intent', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': headerKey },
+    body: toAmountRequest(amount)
+  });
+};
+
+const getDeposits = async ({
+  cursor,
+  limit
+}: {
+  cursor?: string | null;
+  limit?: number;
+} = {}) => {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  const data = await requestWithAuth<any>(
+    query ? `/wallet/deposits?${query}` : '/wallet/deposits'
+  );
+
+  return {
+    items: (data?.items || []).map((item: any) => ({
+      ...item,
+      amount: fromCents(item.amount)
+    })),
+    nextCursor: data?.nextCursor ?? null
+  };
+};
+
+const createWithdrawal = async ({
+  amount,
+  idempotencyKey
+}: {
+  amount: number;
+  idempotencyKey?: string;
+}) => {
+  const headerKey = idempotencyKey || createIdempotencyKey();
+  return requestWithAuth('/wallet/withdrawals', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': headerKey },
+    body: toAmountRequest(amount)
+  });
+};
+
+const getWithdrawals = async ({
+  cursor,
+  limit
+}: {
+  cursor?: string | null;
+  limit?: number;
+} = {}) => {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  const data = await requestWithAuth<any>(
+    query ? `/wallet/withdrawals?${query}` : '/wallet/withdrawals'
+  );
+
+  return {
+    items: (data?.items || []).map((item: any) => ({
+      ...item,
+      amount: fromCents(item.amount)
+    })),
+    nextCursor: data?.nextCursor ?? null
+  };
+};
+
+const approveWithdrawal = async (withdrawalId: string, notes: string) =>
+  requestWithAuth(`/wallet/withdrawals/${withdrawalId}/approve`, {
+    method: 'POST',
+    body: { notes }
+  });
+
+const rejectWithdrawal = async (withdrawalId: string, notes: string) =>
+  requestWithAuth(`/wallet/withdrawals/${withdrawalId}/reject`, {
+    method: 'POST',
+    body: { notes }
+  });
+
+export const walletClient = {
+  getBalances,
+  getLedger,
+  createDepositIntent,
+  getDeposits,
+  createWithdrawal,
+  getWithdrawals,
+  approveWithdrawal,
+  rejectWithdrawal
+};
+

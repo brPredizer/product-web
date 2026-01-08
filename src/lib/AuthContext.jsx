@@ -1,7 +1,9 @@
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { mockApi, mockPublicSettings } from '@/api/mockClient';
+import { authClient } from '@/api/auth';
+import { walletClient } from '@/api/wallet';
+import { mockPublicSettings } from '@/api/mockClient';
 
 const AuthContext = createContext();
 
@@ -12,25 +14,69 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(mockPublicSettings);
+  const [walletAvailableBalance, setWalletAvailableBalance] = useState(0);
 
-  const checkUserAuth = useCallback(async () => {
+  const applySession = useCallback((session) => {
+    setUser(session?.user || null);
+    setIsAuthenticated(Boolean(session?.accessToken && session?.user));
+  }, []);
+
+  const loadWalletBalance = useCallback(async () => {
     try {
-      setIsLoadingAuth(true);
-      const currentUser = await mockApi.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
-      setAuthError(null);
-      setIsLoadingAuth(false);
+      const balances = await walletClient.getBalances();
+      const brlBalance = balances.find((item) => item.currency === 'BRL');
+      setWalletAvailableBalance(brlBalance?.available ?? 0);
     } catch (error) {
-      console.error('User auth check failed:', error);
-      setIsLoadingAuth(false);
-      setIsAuthenticated(false);
-      setAuthError({
-        type: error.status === 403 ? 'user_not_registered' : 'auth_required',
-        message: 'Faça login para continuar'
-      });
+      setWalletAvailableBalance(0);
     }
   }, []);
+
+  const checkUserAuth = useCallback(async () => {
+    setIsLoadingAuth(true);
+    try {
+      const session = authClient.getSession();
+      if (session?.accessToken) {
+        applySession(session);
+        const profile = await authClient.getProfile();
+        if (profile) {
+          applySession({ ...session, user: profile });
+        }
+        await loadWalletBalance();
+        setAuthError(null);
+        return;
+      }
+      if (session?.refreshToken) {
+        const refreshed = await authClient.refresh();
+        applySession(refreshed);
+        const profile = await authClient.getProfile();
+        if (profile) {
+          applySession({ ...refreshed, user: profile });
+        }
+        await loadWalletBalance();
+        setAuthError(null);
+        return;
+      }
+      setUser(null);
+      setIsAuthenticated(false);
+      setWalletAvailableBalance(0);
+      setAuthError({
+        type: 'auth_required',
+        message: 'Login required to continue.'
+      });
+    } catch (error) {
+      console.error('User auth check failed:', error);
+      authClient.clearSession();
+      setUser(null);
+      setIsAuthenticated(false);
+      setWalletAvailableBalance(0);
+      setAuthError({
+        type: 'auth_required',
+        message: 'Login required to continue.'
+      });
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  }, [applySession]);
 
   const checkAppState = useCallback(async () => {
     try {
@@ -50,46 +96,39 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const handler = () => {
-      checkUserAuth();
+      const session = authClient.getSession();
+      applySession(session);
+      if (session?.accessToken) {
+        loadWalletBalance();
+      } else {
+        setWalletAvailableBalance(0);
+      }
     };
     window.addEventListener('predictx:auth-changed', handler);
     return () => window.removeEventListener('predictx:auth-changed', handler);
-  }, [checkUserAuth]);
+  }, [applySession, loadWalletBalance]);
 
   const logout = async (shouldRedirect = true) => {
-    await mockApi.auth.logout(window.location.href);
+    await authClient.logout();
     setUser(null);
     setIsAuthenticated(false);
-    if (shouldRedirect) {
-      navigateToLogin();
-    }
-  };
-
-  const navigateToLogin = async () => {
-    try {
-      const session = await mockApi.auth.redirectToLogin(window.location.href);
-      setUser(session);
-      setIsAuthenticated(true);
-      setAuthError(null);
-    } catch (error) {
-      console.error('Failed to redirect to login:', error);
-      setAuthError({
-        type: 'auth_required',
-        message: 'Não foi possível iniciar sessão'
-      });
+    setWalletAvailableBalance(0);
+    if (shouldRedirect && typeof window !== 'undefined') {
+      window.location.href = '/Login';
     }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,
       appPublicSettings,
+      walletAvailableBalance,
       logout,
-      navigateToLogin,
+      refreshSession: checkUserAuth,
       checkAppState
     }}>
       {children}
@@ -104,3 +143,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -1,0 +1,1 @@
+export { walletClient } from './client';

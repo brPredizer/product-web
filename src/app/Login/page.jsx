@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Script from 'next/script';
 import Layout from '@/Layout';
-import { mockApi } from '@/api/mockClient';
+import { authClient } from '@/api/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Eye, EyeOff, Lock, Mail, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
@@ -33,7 +34,15 @@ function LoginPageContent() {
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleScriptError, setGoogleScriptError] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const signupSuccess = searchParams.get('created') === '1';
+  const googleButtonRef = useRef(null);
+  const googleInitializedRef = useRef(false);
+  const googleClientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    '398416516666-buge59kr35irh3mkia29hhotai611ol1.apps.googleusercontent.com';
 
   const features = useMemo(
     () => [
@@ -56,6 +65,65 @@ function LoginPageContent() {
     []
   );
 
+  const handleGoogleCredential = useCallback(
+    async (response) => {
+      if (!response?.credential) {
+        setError('Google credential missing.');
+        return;
+      }
+
+      setGoogleLoading(true);
+      setError(null);
+      try {
+        await authClient.loginWithGoogle(response.credential);
+        router.push('/Home');
+      } catch (err) {
+        console.error('Google login failed:', err);
+        setError(err?.message || 'Google login failed.');
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    if (!googleReady || googleInitializedRef.current) return;
+    if (!googleButtonRef.current || typeof window === 'undefined') return;
+    if (!window.google?.accounts?.id) return;
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: handleGoogleCredential
+    });
+
+    const el = googleButtonRef.current;
+
+    const render = () => {
+      const buttonWidth = el.offsetWidth;
+      const width = buttonWidth ? Math.floor(buttonWidth) : 360;
+
+      el.innerHTML = ""; // garante re-render limpo se recalcular
+      window.google.accounts.id.renderButton(el, {
+        theme: 'filled_black',
+        size: 'large',
+        shape: 'pill',
+        width,
+        text: 'continue_with',
+        logo_alignment: 'left',
+      });
+    };
+
+    render();
+
+    const ro = new ResizeObserver(() => render());
+    ro.observe(el);
+
+    googleInitializedRef.current = true;
+
+    return () => ro.disconnect();
+  }, [googleReady, googleClientId, handleGoogleCredential]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError(null);
@@ -71,8 +139,7 @@ function LoginPageContent() {
 
     setLoading(true);
     try {
-      await mockApi.auth.redirectToLogin();
-      await mockApi.auth.me();
+      await authClient.login({ email, password });
       router.push('/Home');
     } catch (err) {
       console.error('Falha no login:', err);
@@ -83,7 +150,8 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <>
+      <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
       <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
       <div
@@ -142,23 +210,15 @@ function LoginPageContent() {
                 </div>
               )}
 
-              {/* Social (desativado) */}
-              <div className="mt-5 space-y-3">
-                <button
-                  type="button"
-                  disabled
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-600 opacity-70"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-semibold">
-                        G
-                      </span>
-                      <span className="text-sm font-medium">Continuar com Google</span>
-                    </div>
-                    <span className="text-xs text-slate-400">em breve</span>
-                  </div>
-                </button>
+              {/* Social */}
+              <div className="mt-5 flex flex-col items-center">
+                <div ref={googleButtonRef} className={(!googleReady || googleScriptError) ? "hidden" : ""} />
+                {googleLoading && (
+                  <p className="text-xs text-slate-500 text-center mt-2">Entrando com Google…</p>
+                )}
+                {googleScriptError && (
+                  <p className="text-xs text-rose-600 text-center mt-2">Falha ao carregar o login do Google.</p>
+                )}
               </div>
 
               <div className="my-5 flex items-center gap-4">
@@ -234,6 +294,14 @@ function LoginPageContent() {
         </div>
       </div>
     </div>
+    <Script
+      src="https://accounts.google.com/gsi/client"
+      async
+      defer
+      onLoad={() => setGoogleReady(true)}
+      onError={() => setGoogleScriptError(true)}
+    />
+    </>
   );
 }
 
@@ -244,3 +312,4 @@ export default function LoginPage() {
     </Layout>
   );
 }
+

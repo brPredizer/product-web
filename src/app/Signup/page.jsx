@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Layout from "@/Layout";
-import { mockApi } from "@/api/mockClient";
+import { authClient } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,21 +90,11 @@ function SignupPageContent() {
 
     setLoading(true);
     try {
-      await mockApi.entities.User.create({
-        full_name: name.trim(),
+      await authClient.signup({
+        name: name.trim(),
         email: email.trim(),
-        role: "trader",
-        balance: 0,
-        total_deposited: 0,
-        total_withdrawn: 0,
-        total_wagered: 0,
-        win_rate: 0,
-        markets_participated: 0,
-        status: "pending",
-        kyc_status: "unverified",
-        user_type: "Retail",
-        pending_withdrawals: 0,
-        created_date: new Date().toISOString()
+        password,
+        confirmPassword: confirm
       });
       router.push("/Login?created=1");
     } catch (err) {
@@ -278,3 +268,4 @@ export default function SignupPage() {
     </Layout>
   );
 }
+

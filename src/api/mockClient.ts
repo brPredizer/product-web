@@ -33,6 +33,7 @@ const defaultState: State = {
     User: [
       {
         id: 'user-1',
+        username: 'ana',
         full_name: 'Ana Souza',
         email: 'ana@predictx.com',
         role: 'admin',
@@ -51,6 +52,7 @@ const defaultState: State = {
       },
       {
         id: 'user-2',
+        username: 'bruno',
         full_name: 'Bruno Lima',
         email: 'bruno@predictx.com',
         role: 'trader',
@@ -68,6 +70,7 @@ const defaultState: State = {
       },
       {
         id: 'user-3',
+        username: 'carla',
         full_name: 'Carla Menezes',
         email: 'carla@predictx.com',
         role: 'user',

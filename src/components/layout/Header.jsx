@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { createPageUrl } from '@/utils';
-import { mockApi } from '@/api/mockClient';
 import { Button } from "@/components/ui/button";
 import { 
   LayoutDashboard, 
@@ -15,6 +14,7 @@ import {
   LogOut,
   Shield,
   Sparkles,
+  User,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -33,23 +33,24 @@ const navItems = [
   { name: 'Aprender', icon: GraduationCap, page: 'Learn' },
 ];
 
-export default function Header({ currentPage, user, onLogout }) {
+export default function Header({ currentPage, user, walletAvailableBalance = 0, onLogout }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [avatarFailed, setAvatarFailed] = React.useState(false);
   const visibleNavItems = React.useMemo(() => {
     if (user) return navItems;
     return navItems.filter((item) => item.page !== 'Portfolio' && item.page !== 'Wallet');
   }, [user]);
+  const avatarUrl = (user?.avatar_url || user?.avatarUrl || user?.avatar?.url || '').trim();
+  const displayName = user?.full_name || user?.name || 'Usuario';
+  const userHandle = user?.username ? `@${user.username}` : '';
+  const shouldShowAvatar = Boolean(avatarUrl) && !avatarFailed;
 
-  const switchUser = async (userId) => {
-    try {
-      await mockApi.auth.switchUser(userId);
-    } catch (err) {
-      console.error('Failed to switch user', err);
-    }
-  };
+  React.useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   return (
-    <header className="relative bg-white/80 backdrop-blur-xl border-b border-slate-200/50">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -93,7 +94,7 @@ export default function Header({ currentPage, user, onLogout }) {
                 >
                   <Wallet className="w-4 h-4 text-slate-600" />
                   <span className="font-semibold text-slate-900">
-                    R$ {(user.balance || 0).toFixed(2)}
+                    R$ {Number(walletAvailableBalance || 0).toFixed(2)}
                   </span>
                 </Link>
 
@@ -101,20 +102,37 @@ export default function Header({ currentPage, user, onLogout }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                      <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm font-medium">
-                          {user.full_name?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                        </span>
+                      <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center overflow-hidden">
+                        {shouldShowAvatar ? (
+                          <img
+                            src={avatarUrl}
+                            alt="Avatar"
+                            className="h-full w-full object-cover"
+                            onError={() => setAvatarFailed(true)}
+                          />
+                        ) : (
+                          <span className="text-white text-sm font-medium">
+                            {displayName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                          </span>
+                        )}
                       </div>
                       <ChevronDown className="w-4 h-4 text-slate-500 hidden sm:block" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <div className="px-3 py-2">
-                      <p className="font-medium text-slate-900">{user.full_name || 'Usuário'}</p>
-                      <p className="text-sm text-slate-500">{user.email}</p>
+                      <p className="font-medium text-slate-900">{displayName}</p>
+                      {userHandle ? (
+                        <p className="text-sm text-slate-500">{userHandle}</p>
+                      ) : null}
                     </div>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={createPageUrl('Account')} className="cursor-pointer">
+                        <User className="w-4 h-4 mr-2" />
+                        Minha Conta
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href={createPageUrl('Portfolio')} className="cursor-pointer">
                         <Briefcase className="w-4 h-4 mr-2" />
@@ -229,3 +247,4 @@ export default function Header({ currentPage, user, onLogout }) {
     </header>
   );
 }
+
