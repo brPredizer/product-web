@@ -1,4 +1,4 @@
-import { apiRequest, API_BASE_URL, type RequestOptions } from '@/api/api';
+import { apiRequest, API_BASE_URL, getRoleLevel, normalizeRoles, type RequestOptions } from '@/api/api';
 
 type AuthUser = {
   id: string | null;
@@ -7,9 +7,14 @@ type AuthUser = {
   name?: string;
   username?: string;
   email?: string;
+  emailConfirmed?: boolean;
+  isEmailConfirmed?: boolean;
   role?: string;
   roles?: string[];
   admin_level?: number;
+  twoFactorEnabled?: boolean;
+  two_factor_enabled?: boolean;
+  is2faEnabled?: boolean;
   balance?: number;
   avatar_url?: string;
   avatarUrl?: string;
@@ -102,8 +107,27 @@ const normalizeUser = (user: Record<string, any> | null): AuthUser | null => {
     user.sub ||
     user.email ||
     null;
-  const roles = Array.isArray(user.roles) ? user.roles : user.role ? [user.role] : [];
-  const role = user.role || roles[0] || 'user';
+  const roles = normalizeRoles(user);
+  const roleLevel = getRoleLevel({ roles, admin_level: user.admin_level ?? user.adminLevel });
+  const role = roles[0] || 'USER';
+  const emailConfirmed =
+    typeof user.emailConfirmed === 'boolean'
+      ? user.emailConfirmed
+      : typeof user.email_confirmed === 'boolean'
+        ? user.email_confirmed
+        : typeof user.isEmailConfirmed === 'boolean'
+          ? user.isEmailConfirmed
+          : undefined;
+  const twoFactorEnabled =
+    typeof user.twoFactorEnabled === 'boolean'
+      ? user.twoFactorEnabled
+      : typeof user.two_factor_enabled === 'boolean'
+        ? user.two_factor_enabled
+        : typeof user.is2faEnabled === 'boolean'
+          ? user.is2faEnabled
+          : typeof user.isTwoFactorEnabled === 'boolean'
+            ? user.isTwoFactorEnabled
+            : undefined;
 
   return {
     ...user,
@@ -111,11 +135,14 @@ const normalizeUser = (user: Record<string, any> | null): AuthUser | null => {
     name: user.name || fullName || '',
     full_name: fullName || '',
     email: user.email || '',
+    emailConfirmed,
+    twoFactorEnabled,
+    is2faEnabled: typeof twoFactorEnabled === 'boolean' ? twoFactorEnabled : user.is2faEnabled,
     username: user.username || user.userName || '',
     avatar_url: user.avatar_url || user.avatarUrl || '',
     roles,
     role,
-    admin_level: user.admin_level ?? 0,
+    admin_level: roleLevel,
     balance: typeof user.balance === 'number' ? user.balance : 0,
     cpf: user.cpf || personalData.cpf || '',
     phone_number: user.phone_number || personalData.phoneNumber || '',
@@ -190,14 +217,63 @@ const setSession = ({ accessToken, refreshToken, user }: Partial<AuthSession>): 
   };
 };
 
-const extractSession = (data: Record<string, any> | null): AuthSession => ({
-  accessToken: data?.accessToken || data?.access_token || data?.token || null,
-  refreshToken: data?.refreshToken || data?.refresh_token || null,
-  user: data?.user || data?.profile || data?.account || null
-});
+const extractSession = (data: Record<string, any> | null): AuthSession => {
+  if (!data) return { accessToken: null, refreshToken: null, user: null };
+
+  const maybe = (obj: any, ...keys: string[]) => {
+    if (!obj || typeof obj !== 'object') return null;
+    for (const k of keys) {
+      if (k in obj && obj[k] !== undefined) return obj[k];
+    }
+    return null;
+  };
+
+  // Try several nesting patterns so client tolerates different backend shapes
+  const accessToken =
+    maybe(data, 'accessToken', 'access_token', 'token') || maybe(data?.data, 'accessToken', 'access_token', 'token');
+  const refreshToken =
+    maybe(data, 'refreshToken', 'refresh_token') || maybe(data?.data, 'refreshToken', 'refresh_token');
+
+  const userCandidate =
+    maybe(data, 'user', 'profile', 'account') ||
+    maybe(data, 'data') ||
+    maybe(data, 'result') ||
+    maybe(data?.data, 'user', 'profile', 'account') ||
+    null;
+
+  // If nothing found yet, check if the root object looks like a user (common when
+  // apiRequest already returned payload.data). Detect by presence of id/email/name/username.
+  const looksLikeUser = (obj: any) => {
+    if (!obj || typeof obj !== 'object') return false;
+    return (
+      'id' in obj ||
+      'email' in obj ||
+      'username' in obj ||
+      'userName' in obj ||
+      'name' in obj ||
+      'full_name' in obj ||
+      'fullName' in obj
+    );
+  };
+
+  const finalUser = userCandidate ?? (looksLikeUser(data) ? data : null);
+
+  return {
+    accessToken: accessToken ?? null,
+    refreshToken: refreshToken ?? null,
+    user: finalUser ?? null
+  };
+};
 
 const setSessionFromResponse = (data: Record<string, any> | null) => {
+  if (!data || typeof data !== 'object') {
+    return getSession();
+  }
   const session = extractSession(data || {});
+  const hasSessionPayload = Boolean(session.accessToken || session.refreshToken || session.user);
+  if (!hasSessionPayload) {
+    return getSession();
+  }
   return setSession(session);
 };
 
@@ -216,6 +292,21 @@ const getAuthorizationHeader = (): Record<string, string> => {
 
 const request = async <T>(path: string, options?: RequestOptions) => apiRequest<T>(path, options);
 
+const requestWithFallback = async <T>(
+  primaryPath: string,
+  fallbackPath: string | null,
+  options?: RequestOptions
+) => {
+  try {
+    return await request<T>(primaryPath, options);
+  } catch (error: any) {
+    if (fallbackPath && (error?.status === 404 || error?.status === 405)) {
+      return request<T>(fallbackPath, options);
+    }
+    throw error;
+  }
+};
+
 const requestWithAuth = async <T>(
   path: string,
   options: RequestOptions = {},
@@ -229,7 +320,7 @@ const requestWithAuth = async <T>(
   try {
     return await apiRequest<T>(path, { ...options, headers });
   } catch (error: any) {
-    if (allowRefresh && error?.status === 401 && getSession().refreshToken) {
+    if (allowRefresh && error?.status === 401) {
       try {
         await refresh();
       } catch (refreshError) {
@@ -245,70 +336,231 @@ const requestWithAuth = async <T>(
   }
 };
 
-const signup = async (payload: Record<string, any>) =>
-  request('/auth/signup', { method: 'POST', body: payload });
+const buildQueryString = (params: Record<string, string | boolean | undefined>) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined) return;
+    search.set(key, String(value));
+  });
+  return search.toString();
+};
 
-const login = async ({ email, password }: { email: string; password: string }) => {
-  const data = await request('/auth/login', {
+const getManageInfo = async () => {
+  // Prefer the canonical /users/me endpoint, fallback to /auth/manage/info for backwards compatibility.
+  let data: Record<string, any> | null = null;
+  try {
+    data = await requestWithAuth<Record<string, any>>('/users/me');
+  } catch (err: any) {
+    // if users/me not available, fallback
+    try {
+      data = await requestWithAuth<Record<string, any>>('/auth/manage/info');
+    } catch (err2) {
+      throw err; // rethrow original
+    }
+  }
+  if (!data || typeof data !== 'object') return null;
+  const baseUser = data.user || data.profile || data.account || data;
+  const normalized = normalizeUser(baseUser);
+  if (!normalized) return null;
+  const emailConfirmed =
+    typeof data.emailConfirmed === 'boolean'
+      ? data.emailConfirmed
+      : typeof data.email_confirmed === 'boolean'
+        ? data.email_confirmed
+        : typeof data.isEmailConfirmed === 'boolean'
+          ? data.isEmailConfirmed
+          : normalized.emailConfirmed;
+  const twoFactorEnabled =
+    typeof data.twoFactorEnabled === 'boolean'
+      ? data.twoFactorEnabled
+      : typeof data.two_factor_enabled === 'boolean'
+        ? data.two_factor_enabled
+        : typeof data.is2faEnabled === 'boolean'
+          ? data.is2faEnabled
+          : normalized.twoFactorEnabled;
+  const mergedUser: AuthUser = {
+    ...normalized,
+    emailConfirmed,
+    twoFactorEnabled,
+    is2faEnabled:
+      typeof twoFactorEnabled === 'boolean' ? twoFactorEnabled : normalized.is2faEnabled
+  };
+  setSession({ user: mergedUser });
+  return mergedUser;
+};
+
+const signUp = async (payload: Record<string, any>) => {
+  const data = await requestWithFallback('/auth/sign-up', '/auth/signup', {
     method: 'POST',
-    body: { email, password }
+    body: payload
   });
   return setSessionFromResponse(data as Record<string, any>);
 };
 
-const loginWithGoogle = async (idToken: string) => {
-  const data = await request('/auth/login/google', {
+const signIn = async ({
+  email,
+  password,
+  useCookies = true,
+  useSessionCookies
+}: {
+  email: string;
+  password: string;
+  useCookies?: boolean;
+  useSessionCookies?: boolean;
+}) => {
+  const query = buildQueryString({
+    useCookies,
+    useSessionCookies
+  });
+  const path = query ? `/auth/sign-in?${query}` : '/auth/sign-in';
+  const data = await requestWithFallback(path, path, {
+    method: 'POST',
+    body: { email, password }
+  });
+  const session = setSessionFromResponse(data as Record<string, any>);
+  if (!session?.user) {
+    try {
+      const info = await getManageInfo();
+      if (info) {
+        return setSession({ user: info });
+      }
+    } catch (error) {
+      // Ignore manage info failures after sign in.
+    }
+  }
+  return getSession();
+};
+
+const googleSignIn = async (
+  idToken: string,
+  options?: { useCookies?: boolean; useSessionCookies?: boolean }
+) => {
+  const useCookies = options?.useCookies ?? true;
+  const useSessionCookies = options?.useSessionCookies;
+  const query = buildQueryString({ useCookies, useSessionCookies });
+  const path = query ? `/auth/sign-in/google?${query}` : '/auth/sign-in/google';
+  const data = await requestWithFallback(path, path, {
     method: 'POST',
     body: { idToken }
   });
-  return setSessionFromResponse(data as Record<string, any>);
+  const session = setSessionFromResponse(data as Record<string, any>);
+  if (!session?.user) {
+    try {
+      const info = await getManageInfo();
+      if (info) {
+        return setSession({ user: info });
+      }
+    } catch (error) {
+      // Ignore manage info failures after social sign in.
+    }
+  }
+  return getSession();
 };
 
 const refresh = async () => {
   const { refreshToken } = getSession();
-  if (!refreshToken) {
-    const error = new Error('No refresh token available.') as Error & { code?: string };
-    error.code = 'missing_refresh_token';
-    throw error;
-  }
+  const body = refreshToken ? { refreshToken } : undefined;
   const data = await request('/auth/refresh', {
     method: 'POST',
-    body: { refreshToken }
+    body
   });
   return setSessionFromResponse(data as Record<string, any>);
 };
 
-const logout = async () => {
+const signOut = async () => {
   const { refreshToken } = getSession();
   try {
-    if (refreshToken) {
-      await requestWithAuth(
-        '/auth/logout',
-        {
-          method: 'POST',
-          body: { refreshToken }
-        },
-        false
-      );
+    try {
+      await requestWithAuth('/auth/sign-out', { method: 'POST' }, false);
+      return;
+    } catch (error: any) {
+      if (error?.status !== 404 && error?.status !== 405) {
+        throw error;
+      }
     }
+
+    await requestWithAuth(
+      '/auth/logout',
+      {
+        method: 'POST',
+        body: refreshToken ? { refreshToken } : undefined
+      },
+      false
+    );
   } finally {
     clearSession();
   }
 };
 
+const update2fa = async (payload: Record<string, any>) => {
+  await requestWithAuth('/auth/manage/2fa', { method: 'POST', body: payload });
+  return getManageInfo();
+};
+
+const changePassword = async (payload: {
+  oldPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+}) => {
+  await requestWithAuth('/auth/manage/password', { method: 'POST', body: payload });
+  // Optionally refresh user info after password change
+  try {
+    await getManageInfo();
+  } catch (e) {
+    // ignore
+  }
+  return { success: true };
+};
+
+const confirmEmail = async ({ userId, code }: { userId: string; code: string }) => {
+  const query = buildQueryString({ userId, code });
+  const path = query ? `/auth/confirmEmail?${query}` : '/auth/confirmEmail';
+  return request(path, { method: 'POST' });
+};
+
+const resendConfirmationEmail = async (payload: Record<string, any>) =>
+  request('/auth/resendConfirmationEmail', { method: 'POST', body: payload });
+
 const forgotPassword = async (email: string) =>
-  request('/auth/forgot-password', { method: 'POST', body: { email } });
+  requestWithFallback('/auth/forgotPassword', '/auth/forgot-password', {
+    method: 'POST',
+    body: { email }
+  });
 
 const resetPassword = async (payload: {
-  token: string;
-  password: string;
-  confirmPassword: string;
-}) => request('/auth/reset-password', { method: 'POST', body: payload });
+  email?: string;
+  code?: string;
+  resetCode?: string;
+  password?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+}) =>
+  requestWithFallback('/auth/resetPassword', '/auth/reset-password', {
+    method: 'POST',
+    body: payload
+  });
+
+const verifyResetCode = async (payload: { email: string; code?: string; resetCode?: string }) => {
+  const resetCode = payload.resetCode ?? payload.code ?? '';
+  const body = { email: payload.email, resetCode };
+  return requestWithFallback('/auth/verifyResetCode', '/auth/verify-reset-code', {
+    method: 'POST',
+    body
+  });
+};
 
 const verifyEmail = async (token: string) =>
   request('/auth/verify-email', { method: 'POST', body: { token } });
 
 const getProfile = async () => {
+  try {
+    const info = await getManageInfo();
+    if (info) return info;
+  } catch (error: any) {
+    if (error?.status !== 404 && error?.status !== 405) {
+      throw error;
+    }
+  }
   const data = await requestWithAuth<Record<string, any>>('/users/me');
   const normalized = normalizeUser(data);
   if (normalized) {
@@ -550,21 +802,33 @@ const updateUser = async (updates: Record<string, any>) => {
 
 export const authClient = {
   API_BASE_URL,
+  request,
+  requestWithAuth,
   getSession,
   setSession,
+  getManageInfo,
   getProfile,
   updateProfile,
   updateAddress,
   updateAvatar,
   updateUser,
   clearSession,
-  signup,
-  login,
-  loginWithGoogle,
+  signUp,
+  signIn,
+  signOut,
+  googleSignIn,
   refresh,
-  logout,
+  confirmEmail,
+  changePassword,
+  resendConfirmationEmail,
   forgotPassword,
   resetPassword,
+  verifyResetCode,
+  update2fa,
+  signup: signUp,
+  signin: signIn,
+  logout: signOut,
+  loginWithGoogle: googleSignIn,
   verifyEmail,
   getUserSessions,
   revokeUserSession

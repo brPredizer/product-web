@@ -446,6 +446,20 @@ type EntityHandlers = {
   delete: (id: string) => Promise<boolean>;
 };
 
+type MockApi = {
+  entities: { [K in keyof typeof defaultState.entities]: EntityHandlers }
+  auth: {
+    me: () => Promise<AnyRecord>
+    updateMe: (data: AnyRecord) => Promise<AnyRecord>
+    logout: (redirectUrl?: string | null) => Promise<boolean>
+    redirectToLogin: () => Promise<AnyRecord>
+  }
+  appLogs: {
+    logUserInApp: (pageName: string) => Promise<boolean>
+  }
+  integrations: Record<string, any>
+}
+
 const entitiesProxyCache = new Map<string, EntityHandlers>();
 
 const getEntityHandlers = (entityName: string): EntityHandlers => {
@@ -604,10 +618,10 @@ const mockLLMResponse = async ({ prompt }: { prompt?: string }): Promise<Record<
   };
 };
 
-export const mockApi = {
+export const mockApi: MockApi = {
   entities: new Proxy({}, {
     get: (_, entityName: string) => getEntityHandlers(entityName)
-  }),
+  }) as unknown as { [K in keyof typeof defaultState.entities]: EntityHandlers },
   auth: {
     me: () => simulateNetwork(() => {
       const user = getCurrentUser();

@@ -14,7 +14,7 @@ module.exports = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
-  		colors: {
+			colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
@@ -65,7 +65,35 @@ module.exports = {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
-  		},
+			},
+			// Status and category colors mapped to CSS variables for charts
+			status: {
+				pending: 'var(--color-pending)',
+				approved: 'var(--color-approved)',
+				rejected: 'var(--color-rejected)',
+				completed: 'var(--color-completed)',
+				'withdrawal-fees': 'var(--color-withdrawal-fees)',
+				'deposit-fees': 'var(--color-deposit-fees)',
+				DEFAULT: 'var(--color-status-default)'
+			},
+			category: {
+				trending: 'var(--color-trending)',
+				new: 'var(--color-new)',
+				all: 'var(--color-all)',
+				politics: 'var(--color-politics)',
+				sports: 'var(--color-sports)',
+				culture: 'var(--color-culture)',
+				crypto: 'var(--color-crypto)',
+				weather: 'var(--color-weather)',
+				economy: 'var(--color-economy)',
+				mentions: 'var(--color-mentions)',
+				companies: 'var(--color-companies)',
+				finance: 'var(--color-finance)',
+				technology: 'var(--color-technology)',
+				health: 'var(--color-health)',
+				world: 'var(--color-world)',
+				DEFAULT: 'var(--color-status-default)'
+			},
   		keyframes: {
   			'accordion-down': {
   				from: {
@@ -88,7 +116,7 @@ module.exports = {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		}
-  	}
+  	},
   },
   plugins: [require("tailwindcss-animate")],
 }

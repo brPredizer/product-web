@@ -37,6 +37,48 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Status colors used by charts */
+    --color-pending: #f59e0b;
+    --color-approved: #10b981;
+    --color-rejected: #ef4444;
+    --color-completed: #6366f1;
+    --color-withdrawal-fees: #8b5cf6;
+    --color-deposit-fees: #06b6d4;
+    --color-status-default: #94a3b8;
+    /* Category colors used by MarketDistributionChart */
+    --color-trending: #f59e0b;
+    --color-new: #10b981;
+    --color-all: #64748b;
+    --color-politics: #8b5cf6;
+    --color-sports: #ef4444;
+    --color-culture: #ec4899;
+    --color-crypto: #f97316;
+    --color-weather: #06b6d4;
+    --color-economy: #10b981;
+    --color-mentions: #a855f7;
+    --color-companies: #6366f1;
+    --color-finance: #14b8a6;
+    --color-technology: #3b82f6;
+    --color-health: #22c55e;
+    --color-world: #84cc16;
+    /* Generic chart colors */
+    --chart-grid: #e2e8f0;
+    --chart-tick: #94a3b8;
+    --chart-blue: #3b82f6;
+    --chart-green: #10b981;
+    --chart-cyan: #06b6d4;
+    --chart-amber: #f59e0b;
+    --chart-purple: #8b5cf6;
+    --chart-red: #ef4444;
+    --chart-negative: #f43f5e;
+    --chart-default: #8884d8;
+    /* Countdown / small UI colors */
+    --count-bg: #E6F4EF;
+    --count-progress: #047857;
+    --count-text: #064E3B;
+    /* Canvas fallback fill */
+    --canvas-fill: #ffffff;
   }
 
   .dark {
@@ -85,4 +127,60 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+@layer base {
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+
+  input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    display: none !important;
+    pointer-events: none;
+  }
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;               /* thin | auto */
+  scrollbar-color: rgba(0,0,0,.35) transparent;
+}
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 6px;                          /* deixa bem fina */
+  height: 6px;                         /* horizontal */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,.35);
+  border-radius: 999px;
+  border: 2px solid transparent;       /* “afina” o thumb visualmente */
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0,0,0,.5);
+}
+
+/* Market progress bar fills (used by src/views/Market.tsx) */
+.market-progress > .market-progress-fill-yes {
+  width: var(--yes, 50%);
+  transition: width 200ms ease;
+}
+
+.market-progress > .market-progress-fill-no {
+  width: var(--no, 50%);
+  transition: width 200ms ease;
+}
+
+.market-progress > .market-progress-fill-yes,
+.market-progress > .market-progress-fill-no {
+  height: 100%;
 }

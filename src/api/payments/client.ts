@@ -1,4 +1,4 @@
-import { apiRequest, type RequestOptions } from '@/api/api';
+import { type RequestOptions } from '@/api/api';
 import { authClient } from '@/api/auth';
 
 export type PaymentMethodType = 'PIX' | 'BANK_ACCOUNT' | 'CARD';
@@ -21,28 +21,8 @@ export type PaymentMethod = {
   cardHolderName?: string;
 };
 
-const requestWithAuth = async <T>(path: string, options: RequestOptions = {}) => {
-  const { accessToken, refreshToken } = authClient.getSession();
-  const headers = {
-    ...(options.headers || {}),
-    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
-  };
-
-  try {
-    return await apiRequest<T>(path, { ...options, headers });
-  } catch (error: any) {
-    if (error?.status === 401 && refreshToken) {
-      await authClient.refresh();
-      const { accessToken: newToken } = authClient.getSession();
-      const retryHeaders = {
-        ...(options.headers || {}),
-        ...(newToken ? { Authorization: `Bearer ${newToken}` } : {})
-      };
-      return apiRequest<T>(path, { ...options, headers: retryHeaders });
-    }
-    throw error;
-  }
-};
+const requestWithAuth = async <T>(path: string, options: RequestOptions = {}) =>
+  authClient.requestWithAuth<T>(path, options);
 
 const normalizeMethods = (data: any): PaymentMethod[] => {
   if (Array.isArray(data)) return data;
