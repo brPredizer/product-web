@@ -324,6 +324,10 @@ const requestWithAuth = async <T>(
       try {
         await refresh();
       } catch (refreshError) {
+        // If refresh fails, clear local session to avoid keeping invalid tokens.
+        try {
+          clearSession();
+        } catch (e) {}
         throw error;
       }
       const retryHeaders = {
@@ -443,7 +447,25 @@ const googleSignIn = async (
     method: 'POST',
     body: { idToken }
   });
-  const session = setSessionFromResponse(data as Record<string, any>);
+  let session = setSessionFromResponse(data as Record<string, any>);
+
+  // If the backend did not return session payload and we attempted cookie flow,
+  // try an automatic fallback to token-in-body flow so front can persist session.
+  if (!session?.user && useCookies) {
+    try {
+      // Retry explicitly requesting no-cookie response
+      const fbQuery = buildQueryString({ useCookies: false, useSessionCookies });
+      const fbPath = fbQuery ? `/auth/sign-in/google?${fbQuery}` : '/auth/sign-in/google';
+      const fbData = await requestWithFallback(fbPath, fbPath, {
+        method: 'POST',
+        body: { idToken }
+      });
+      session = setSessionFromResponse(fbData as Record<string, any>);
+    } catch (err) {
+      // ignore fallback failure
+    }
+  }
+
   if (!session?.user) {
     try {
       const info = await getManageInfo();
@@ -454,17 +476,33 @@ const googleSignIn = async (
       // Ignore manage info failures after social sign in.
     }
   }
+
   return getSession();
 };
 
 const refresh = async () => {
   const { refreshToken } = getSession();
-  const body = refreshToken ? { refreshToken } : undefined;
-  const data = await request('/auth/refresh', {
-    method: 'POST',
-    body
-  });
-  return setSessionFromResponse(data as Record<string, any>);
+  // Debug: log whether we have a stored refresh token
+  try {
+    // eslint-disable-next-line no-console
+    console.debug('[auth] refresh() - hasStoredRefreshToken=', Boolean(refreshToken));
+  } catch (e) {}
+
+  const body = refreshToken ? { refreshToken } : {};
+  try {
+    const data = await request('/auth/refresh', {
+      method: 'POST',
+      body,
+      credentials: 'include'
+    });
+    return setSessionFromResponse(data as Record<string, any>);
+  } catch (err: any) {
+    // If refresh fails (expired/invalid refresh token), clear local session.
+    try {
+      clearSession();
+    } catch (e) {}
+    throw err;
+  }
 };
 
 const signOut = async () => {

@@ -48,8 +48,45 @@ const createMethod = async (payload: Record<string, any>): Promise<PaymentMethod
 const deleteMethod = async (id: string) =>
   requestWithAuth(`/payments/methods/${id}`, { method: 'DELETE' });
 
+// Create MercadoPago PIX payment via backend
+const createMercadoPagoPix = async (payload: {
+  amount: number;
+  description?: string;
+  buyerEmail?: string;
+  orderId?: string;
+}) => {
+  const data = await requestWithAuth<any>('/payments/mercadopago/pix', {
+    method: 'POST',
+    body: payload
+  });
+
+  if (!data) return null;
+
+  return {
+    paymentId: data.paymentId ?? data.id ?? data.payment_id ?? null,
+    qrBase64: data.qrBase64 ?? data.qr_base64 ?? data.qr_image_base64 ?? null,
+    qrCode: data.qrCode ?? data.qr_code ?? data.payload ?? data.payloadString ?? null,
+    expiresAt: data.expiresAt ?? data.date_of_expiration ?? data.expires_at ?? null,
+    status: data.status ?? data.Status ?? null,
+    _raw: data
+  } as any;
+};
+
+const getMercadoPagoStatus = async (paymentId: string | number) => {
+  const id = String(paymentId);
+  const data = await requestWithAuth<any>(`/payments/mercadopago/status/${encodeURIComponent(id)}`);
+  if (!data) return null;
+  return {
+    paymentId: data.paymentId ?? data.id ?? data.payment_id ?? id,
+    status: data.status ?? data.Status ?? null,
+    _raw: data
+  } as any;
+};
+
 export const paymentsClient = {
   getMethods,
   createMethod,
-  deleteMethod
+  deleteMethod,
+  createMercadoPagoPix,
+  getMercadoPagoStatus
 };

@@ -1313,7 +1313,7 @@ export default function Admin({ user }: AdminProps) {
                       + Nova Postagem
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
                     <DialogHeader>
                       <DialogTitle>Criar Nova Postagem</DialogTitle>
                       <DialogDescription>
@@ -1396,7 +1396,7 @@ export default function Admin({ user }: AdminProps) {
                       + Nova Campanha
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
                     <DialogHeader>
                       <DialogTitle>Criar Nova Campanha Publicitária</DialogTitle>
                       <DialogDescription>

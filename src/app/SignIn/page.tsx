@@ -152,7 +152,17 @@ function SignInPageContent(): JSX.Element {
       setGoogleLoading(true);
       setError(null);
       try {
+        // primary attempt using current `useCookies` setting
         await authClient.googleSignIn(response.credential, { useCookies, useSessionCookies });
+
+        // quick verification: session stored in localStorage by authClient
+        const session = authClient.getSession();
+        if (!session?.user) {
+          // fallback: try exchanging token for JSON tokens (no cookies)
+          console.debug('[auth] googleSignIn: no session after cookie attempt, retrying with useCookies:false');
+          await authClient.googleSignIn(response.credential, { useCookies: false, useSessionCookies });
+        }
+
         router.push('/Home');
       } catch (err) {
         console.error('Google login failed:', err);

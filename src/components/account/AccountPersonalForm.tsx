@@ -323,7 +323,7 @@ export default function AccountPersonalForm({
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="sm:max-w-[520px]">
+          <DialogContent className="sm:max-w-[520px] focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
             <DialogHeader>
               <DialogTitle>Editar foto</DialogTitle>
               <p className="text-xs text-slate-500 mt-1">(PNG/JPG até 2MB).</p>

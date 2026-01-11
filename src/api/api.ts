@@ -31,7 +31,7 @@ export type AuthResponse = {
 };
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5280/api/v1';
+  process.env.NEXT_PUBLIC_API_BASE_URL;
 
 const parseResponse = async (response: Response) => {
   try {

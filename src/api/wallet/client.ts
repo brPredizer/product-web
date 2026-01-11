@@ -76,12 +76,40 @@ const createDepositIntent = async ({
   amount: number;
   idempotencyKey?: string;
 }) => {
+  // 1) Create a PaymentIntent on backend (amount in cents)
   const headerKey = idempotencyKey || createIdempotencyKey();
-  return requestWithAuth('/wallet/deposits/intent', {
+
+  const intentRes = await requestWithAuth<any>('/wallet/deposits/intent', {
     method: 'POST',
     headers: { 'Idempotency-Key': headerKey },
     body: toAmountRequest(amount)
   });
+
+  // extract paymentIntentId and possibly returned idempotencyKey
+  const paymentIntentId = intentRes?.data?.paymentIntentId || intentRes?.paymentIntentId;
+  const returnedIdempotency = intentRes?.data?.idempotencyKey || intentRes?.idempotencyKey || headerKey;
+
+  // 2) Create PIX via backend (which calls Mercado Pago), correlate using orderId
+  const session = authClient.getSession();
+  const buyerEmail = session?.user?.email || session?.user?.username || undefined;
+  const orderId = paymentIntentId ? `WALLET_DEPOSIT_${paymentIntentId}` : `WALLET_DEPOSIT_${Date.now()}`;
+
+  const pixRes = await requestWithAuth<any>('/payments/mercadopago/pix', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': returnedIdempotency },
+    body: {
+      amount: Number(amount),
+      description: 'Depósito - carteira',
+      orderId,
+      buyerEmail
+    }
+  });
+
+  // Return both intent and pix responses so caller can use whichever fields needed
+  return {
+    intent: intentRes,
+    pix: pixRes
+  };
 };
 
 const getDeposits = async ({

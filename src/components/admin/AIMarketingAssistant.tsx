@@ -198,7 +198,7 @@ export default function AIMarketingAssistant({ markets = [], contentPosts = [], 
             </div>
           </Card>
         </DialogTrigger>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
           <DialogHeader>
             <DialogTitle>Criar Rascunho de Postagem</DialogTitle>
             <DialogDescription>O rascunho será enviado para aprovação antes de ser publicado</DialogDescription>
@@ -321,7 +321,7 @@ export default function AIMarketingAssistant({ markets = [], contentPosts = [], 
               </Button>
             </Card>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
             <DialogHeader>
               <DialogTitle>Rascunhos Aguardando Aprovação</DialogTitle>
               <DialogDescription>Revise os rascunhos e aprove ou rejeite para devolução</DialogDescription>
