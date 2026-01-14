@@ -30,8 +30,9 @@ export type AuthResponse = {
   user: Record<string, any>;
 };
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL;
+const rawApiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE ?? "";
+// Remove trailing slash to keep concatenation predictable
+export const API_BASE_URL = String(rawApiBase).replace(/\/$/, "");
 
 const parseResponse = async (response: Response) => {
   try {

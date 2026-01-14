@@ -357,7 +357,9 @@ const getManageInfo = async () => {
   } catch (err: any) {
     // if users/me not available, fallback
     try {
-      data = await requestWithAuth<Record<string, any>>('/auth/manage/info');
+      // Important: when cookie-based auth is used, call the endpoint without
+      // adding Authorization header so the server can rely on cookies.
+      data = await request<Record<string, any>>('/auth/manage/info');
     } catch (err2) {
       throw err; // rethrow original
     }
@@ -449,22 +451,9 @@ const googleSignIn = async (
   });
   let session = setSessionFromResponse(data as Record<string, any>);
 
-  // If the backend did not return session payload and we attempted cookie flow,
-  // try an automatic fallback to token-in-body flow so front can persist session.
-  if (!session?.user && useCookies) {
-    try {
-      // Retry explicitly requesting no-cookie response
-      const fbQuery = buildQueryString({ useCookies: false, useSessionCookies });
-      const fbPath = fbQuery ? `/auth/sign-in/google?${fbQuery}` : '/auth/sign-in/google';
-      const fbData = await requestWithFallback(fbPath, fbPath, {
-        method: 'POST',
-        body: { idToken }
-      });
-      session = setSessionFromResponse(fbData as Record<string, any>);
-    } catch (err) {
-      // ignore fallback failure
-    }
-  }
+  // Note: do NOT perform an automatic fallback to `useCookies=false` here.
+  // The front-end should explicitly choose cookie or token flow to avoid
+  // duplicate requests and mixed auth strategies.
 
   if (!session?.user) {
     try {

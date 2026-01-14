@@ -158,9 +158,9 @@ function SignInPageContent(): JSX.Element {
         // quick verification: session stored in localStorage by authClient
         const session = authClient.getSession();
         if (!session?.user) {
-          // fallback: try exchanging token for JSON tokens (no cookies)
-          console.debug('[auth] googleSignIn: no session after cookie attempt, retrying with useCookies:false');
-          await authClient.googleSignIn(response.credential, { useCookies: false, useSessionCookies });
+          console.debug('[auth] googleSignIn: no session after cookie attempt; not retrying automatically');
+          setError('Não foi possível autenticar via cookie. Verifique DevTools → Network/Response/Issues ou tente o fluxo de token explicitamente.');
+          return;
         }
 
         router.push('/Home');

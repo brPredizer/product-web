@@ -1,5 +1,6 @@
 import '@/index.css';
 import Providers from './providers';
+import MercadoPagoSecurityScripts from '@/components/MercadoPagoSecurityScripts';
 import React, { ReactNode } from 'react';
 
 export const metadata = {
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <MercadoPagoSecurityScripts />
+          {children}
+        </Providers>
       </body>
     </html>
   );

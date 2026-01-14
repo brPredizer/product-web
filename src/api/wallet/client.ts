@@ -26,22 +26,34 @@ type LedgerListResponse = {
 };
 
 type AmountRequest = {
-  amount: number;
+  amount: string;
 };
 
-const toCents = (value: number) => Math.round(Number(value || 0) * 100);
-const fromCents = (value: number) => Number(value || 0) / 100;
-const toAmountRequest = (value: number): AmountRequest => ({ amount: toCents(value) });
+const parseDecimalMoney = (value: unknown): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const toAmountRequest = (value: number): AmountRequest => ({
+  amount: (Number.isFinite(value) ? value : 0).toFixed(6)
+});
 
 const requestWithAuth = async <T>(path: string, options: RequestOptions = {}) =>
   authClient.requestWithAuth<T>(path, options);
 
 const getBalances = async (): Promise<WalletBalance[]> => {
-  const data = await requestWithAuth<WalletBalance[]>('/wallet/balances');
+  const data = await requestWithAuth<Array<{ currency: string; balance: unknown; available: unknown }>>(
+    '/wallet/balances'
+  );
   return (data || []).map((item) => ({
     ...item,
-    balance: fromCents(item.balance),
-    available: fromCents(item.available)
+    balance: parseDecimalMoney(item.balance),
+    available: parseDecimalMoney(item.available)
   }));
 };
 
@@ -56,14 +68,14 @@ const getLedger = async ({
   if (cursor) params.set('cursor', cursor);
   if (limit) params.set('limit', String(limit));
   const query = params.toString();
-  const data = await requestWithAuth<LedgerListResponse>(
+  const data = await requestWithAuth<{ entries: any[]; nextCursor: string | null }>(
     query ? `/wallet/ledger?${query}` : '/wallet/ledger'
   );
 
   return {
-    entries: (data?.entries || []).map((entry) => ({
+    entries: (data?.entries || []).map((entry: any) => ({
       ...entry,
-      amount: fromCents(entry.amount)
+      amount: parseDecimalMoney(entry.amount)
     })),
     nextCursor: data?.nextCursor ?? null
   };
@@ -130,7 +142,7 @@ const getDeposits = async ({
   return {
     items: (data?.items || []).map((item: any) => ({
       ...item,
-      amount: fromCents(item.amount)
+      amount: parseDecimalMoney(item.amount)
     })),
     nextCursor: data?.nextCursor ?? null
   };
@@ -144,11 +156,14 @@ const createWithdrawal = async ({
   idempotencyKey?: string;
 }) => {
   const headerKey = idempotencyKey || createIdempotencyKey();
-  return requestWithAuth('/wallet/withdrawals', {
+  const data = await requestWithAuth<any>('/wallet/withdrawals', {
     method: 'POST',
     headers: { 'Idempotency-Key': headerKey },
     body: toAmountRequest(amount)
   });
+
+  if (!data || typeof data !== 'object') return data;
+  return { ...data, amount: parseDecimalMoney((data as any).amount) };
 };
 
 const getWithdrawals = async ({
@@ -169,23 +184,31 @@ const getWithdrawals = async ({
   return {
     items: (data?.items || []).map((item: any) => ({
       ...item,
-      amount: fromCents(item.amount)
+      amount: parseDecimalMoney(item.amount)
     })),
     nextCursor: data?.nextCursor ?? null
   };
 };
 
-const approveWithdrawal = async (withdrawalId: string, notes: string) =>
-  requestWithAuth(`/wallet/withdrawals/${withdrawalId}/approve`, {
+const approveWithdrawal = async (withdrawalId: string, notes: string) => {
+  const data = await requestWithAuth<any>(`/wallet/withdrawals/${withdrawalId}/approve`, {
     method: 'POST',
     body: { notes }
   });
 
-const rejectWithdrawal = async (withdrawalId: string, notes: string) =>
-  requestWithAuth(`/wallet/withdrawals/${withdrawalId}/reject`, {
+  if (!data || typeof data !== 'object') return data;
+  return { ...data, amount: parseDecimalMoney((data as any).amount) };
+};
+
+const rejectWithdrawal = async (withdrawalId: string, notes: string) => {
+  const data = await requestWithAuth<any>(`/wallet/withdrawals/${withdrawalId}/reject`, {
     method: 'POST',
     body: { notes }
   });
+
+  if (!data || typeof data !== 'object') return data;
+  return { ...data, amount: parseDecimalMoney((data as any).amount) };
+};
 
 export const walletClient = {
   getBalances,
