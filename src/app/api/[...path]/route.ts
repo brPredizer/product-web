@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/api/api';
+import { API_BASE_URL } from '@/app/api/api';
 
 const HOP_BY_HOP = new Set([
   'connection',

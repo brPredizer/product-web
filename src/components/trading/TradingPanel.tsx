@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from 'react'
-import { mockApi } from '@/api/mockClient'
+import { mockApi } from '@/app/api/mockClient'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

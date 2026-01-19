@@ -2,9 +2,15 @@
 
 import React, { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from './AuthContext';
-import { mockApi as mockApiImport } from '@/api/mockClient';
-import { pagesConfig, resolvePageKeyFromPath } from '@/pages.config';
+import { useAuth } from '@/context/AuthContext';
+import { mockApi as mockApiImport } from '@/app/api/mockClient';
+import {
+  pagesConfig,
+  resolvePageKeyFromPath,
+  PUBLIC_ROUTE_PREFIXES,
+  PRIVATE_ROUTE_PREFIXES,
+  ROUTES
+} from '@/routes';
 
 const mockApi: any = mockApiImport as any;
 
@@ -19,23 +25,13 @@ export default function NavigationTracker(): null {
     if (!path) return true;
     const p = String(path).toLowerCase();
 
-    const authPrefixes = [
-      '/sign-in',
-      '/sign-up',
-      '/forgot-password',
-      '/reset-password',
-      '/confirm-email'
-    ];
-    if (authPrefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) return true;
+    if (PUBLIC_ROUTE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) {
+      return true;
+    }
 
-    const protectedPrefixes = [
-      '/portfolio',
-      '/wallet',
-      '/account',
-      '/admin',
-      '/riskcontrols'
-    ];
-    if (protectedPrefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) return false;
+    if (PRIVATE_ROUTE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) {
+      return false;
+    }
 
     return true;
   };
@@ -54,7 +50,7 @@ export default function NavigationTracker(): null {
     if (isLoadingAuth) return;
     if (!isAuthenticated && !isPublicRoute(pathname)) {
       // Replace navigation to sign-in when user is not authenticated
-      router.replace('/sign-in');
+      router.replace(ROUTES.signIn);
     }
   }, [pathname, isAuthenticated, isLoadingAuth, router]);
 

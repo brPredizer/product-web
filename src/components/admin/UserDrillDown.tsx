@@ -1,5 +1,5 @@
 import React from 'react';
-import { mockApi } from '@/api/mockClient';
+import { mockApi } from '@/app/api/mockClient';
 import { useQuery } from '@tanstack/react-query';
 import {
   Sheet,

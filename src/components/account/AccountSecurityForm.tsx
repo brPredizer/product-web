@@ -3,10 +3,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import * as auth from '@/api/auth';
-import { apiRequest } from '@/api/api';
+import * as auth from '@/app/api/auth';
+import { apiRequest } from '@/app/api/api';
 import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
-import { useAuth } from '@/lib/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AccountSecurityForm(): JSX.Element {
   const { user } = useAuth() as { user?: any };

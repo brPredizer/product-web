@@ -169,7 +169,7 @@
   background-color: rgba(0,0,0,.5);
 }
 
-/* Market progress bar fills (used by src/views/Market.tsx) */
+/* Market progress bar fills (used by src/components/pages/Market.tsx) */
 .market-progress > .market-progress-fill-yes {
   width: var(--yes, 50%);
   transition: width 200ms ease;

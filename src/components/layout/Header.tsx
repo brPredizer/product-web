@@ -1,7 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
-import { createPageUrl } from '@/utils'
-import { isAdminL1 } from '@/api/api'
+import { createPageUrl } from '@/routes'
+import { isAdminL1 } from '@/app/api/api'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard,
@@ -142,7 +142,7 @@ export default function Header({ currentPage, user, walletAvailableBalance = 0, 
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                          <Link href="/CreateMarket" className="cursor-pointer text-purple-700">
+                          <Link href={createPageUrl('CreateMarket')} className="cursor-pointer text-purple-700">
                             <Sparkles className="w-4 h-4 mr-2" />
                             Criar Mercado
                           </Link>

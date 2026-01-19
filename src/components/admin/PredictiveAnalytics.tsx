@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { mockApi } from '@/api/mockClient';
+import { mockApi } from '@/app/api/mockClient';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

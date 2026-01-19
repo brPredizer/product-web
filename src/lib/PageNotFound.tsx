@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/AuthContext';
-import { isAdminL1 } from '@/api/api';
+import { useAuth } from '@/context/AuthContext';
+import { isAdminL1 } from '@/app/api/api';
 
 export default function PageNotFound(): JSX.Element {
   const pathname = usePathname();

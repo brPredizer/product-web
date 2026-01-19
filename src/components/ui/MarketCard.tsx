@@ -1,6 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
-import { createPageUrl } from '@/utils'
+import { createPageUrl } from '@/routes'
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, Clock, Users } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'

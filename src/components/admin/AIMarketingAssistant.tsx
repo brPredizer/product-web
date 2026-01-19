@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { mockApi } from '@/api/mockClient';
+import { mockApi } from '@/app/api/mockClient';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
