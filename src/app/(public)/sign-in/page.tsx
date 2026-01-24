@@ -199,6 +199,9 @@ function SignInPageContent(): JSX.Element {
 
     const el = googleButtonRef.current;
 
+    const lastWidthRef = { current: 0 } as { current: number };
+    let resizeTimer: any = null;
+
     const render = () => {
       const buttonWidth = el.offsetWidth;
       const width = buttonWidth ? Math.floor(buttonWidth) : 360;
@@ -214,14 +217,28 @@ function SignInPageContent(): JSX.Element {
       });
     };
 
+    // initial render
+    lastWidthRef.current = el.offsetWidth || 0;
     render();
 
-    const ro = new ResizeObserver(() => render());
+    const ro = new ResizeObserver(() => {
+      // throttle resize handling to avoid rapid loops caused by render changing layout
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const w = el.offsetWidth || 0;
+        if (w === lastWidthRef.current) return;
+        lastWidthRef.current = w;
+        render();
+      }, 80);
+    });
     ro.observe(el);
 
     googleInitializedRef.current = true;
 
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
   }, [googleReady, googleClientId, handleGoogleCredential]);
 
   const handleSubmit = async (event: React.FormEvent) => {
