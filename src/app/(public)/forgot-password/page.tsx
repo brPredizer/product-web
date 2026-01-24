@@ -49,6 +49,7 @@ export default function ForgotPasswordPage(): JSX.Element {
           user_not_found: 'Não encontramos uma conta com esse e-mail.',
           too_many_requests: 'Muitas tentativas. Aguarde um pouco e tente novamente.',
           invalid_email: 'E-mail inválido.',
+          external_account_cannot_change_password: 'Conta via Google — Sua conta foi criada com o Google. A senha só pode ser alterada nas configurações do Google.',
         };
 
         if (map[key]) return map[key];

@@ -66,8 +66,10 @@ export default function TradingPanel({
     return validUntil > new Date()
   })
 
-  const price = side === 'yes' ? market.yes_price : (market.no_price ?? (1 - market.yes_price))
-  const units = amount ? Math.floor(parseFloat(amount) / price) : 0
+  const yesPriceNum = Number(market?.yes_price ?? 0.5)
+  const noPriceNum = Number(market?.no_price ?? (1 - yesPriceNum))
+  const price = side === 'yes' ? yesPriceNum : noPriceNum
+  const units = amount && price > 0 ? Math.floor(parseFloat(amount) / price) : 0
   const potentialPayout = units * 1
   const potentialProfit = potentialPayout - (parseFloat(amount) || 0)
 
@@ -132,8 +134,8 @@ export default function TradingPanel({
 
   const quickAmounts = [10, 50, 100, 500]
 
-  const cardOuterClass = isEmbedded ? '' : 'bg-white rounded-2xl border border-slate-200 overflow-hidden'
-  const bodyClass = isEmbedded ? '' : 'p-6'
+  const cardOuterClass = isEmbedded ? '' : 'bg-white'
+  const bodyClass = isEmbedded ? '' : 'p-0'
 
   const sideSelector = (
     <div className={cn('grid grid-cols-2', isEmbedded ? 'gap-2 mb-4' : 'gap-3 mb-6')}>
@@ -150,11 +152,11 @@ export default function TradingPanel({
             <TrendingUp className="w-4 h-4 text-emerald-600" />
             <span className={cn('text-sm font-semibold', side === 'yes' ? 'text-emerald-600' : 'text-slate-700')}>SIM</span>
           </span>
-          {!isEmbedded && <span className="text-xs text-slate-500">{Math.round(market.yes_price * 100)}%</span>}
+          {!isEmbedded && <span className="text-xs text-slate-500">{Math.round(yesPriceNum * 100)}%</span>}
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className={cn(isEmbedded ? 'text-base' : 'text-xl', 'font-bold', side === 'yes' ? 'text-emerald-600' : 'text-slate-900')}>
-            R$ {(market.yes_price).toFixed(2)}
+            R$ {yesPriceNum.toFixed(2)}
           </span>
           {!isEmbedded && (
             <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">prob.</span>
@@ -175,11 +177,11 @@ export default function TradingPanel({
             <TrendingDown className="w-4 h-4 text-rose-600" />
             <span className={cn('text-sm font-semibold', side === 'no' ? 'text-rose-600' : 'text-slate-700')}>NÃO</span>
           </span>
-          {!isEmbedded && <span className="text-xs text-slate-500">{Math.round((market.no_price ?? (1 - market.yes_price)) * 100)}%</span>}
+          {!isEmbedded && <span className="text-xs text-slate-500">{Math.round(noPriceNum * 100)}%</span>}
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className={cn(isEmbedded ? 'text-base' : 'text-xl', 'font-bold', side === 'no' ? 'text-rose-600' : 'text-slate-900')}>
-            R$ {(market.no_price || (1 - market.yes_price)).toFixed(2)}
+            R$ {noPriceNum.toFixed(2)}
           </span>
           {!isEmbedded && (
             <span className="text-[10px] font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">prob.</span>
@@ -228,7 +230,7 @@ export default function TradingPanel({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-600">Preço por contrato</span>
-              <span className="font-semibold text-slate-900">R$ {price.toFixed(2)}</span>
+              <span className="font-semibold text-slate-900">R$ {Number(price).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-600">Pagamento se acertar</span>

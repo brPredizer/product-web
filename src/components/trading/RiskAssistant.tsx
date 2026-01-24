@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from 'react'
-import { mockApi } from '@/app/api/mockClient'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
+'use client'
+
+import React, { useEffect, useState } from 'react'
 import {
   Sparkles,
   TrendingUp,
-  Shield,
   AlertTriangle,
-  Info,
+  Shield,
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Info,
 } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { mockApi } from '@/app/api/mockClient'
+
 import {
   calculateRiskManagedPosition,
   blendProbability,
@@ -20,7 +24,6 @@ import {
   getRiskLevel,
   formatBRL,
 } from '@/utils/marketIntelligence'
-import { cn } from '@/lib/utils'
 
 type Market = any
 
@@ -37,238 +40,308 @@ type Analysis = {
   p_mkt: number
 }
 
-export default function RiskAssistant({ market, userBalance, side }: RiskAssistantProps) {
-  const [loading, setLoading] = useState<boolean>(false)
+export default function RiskAssistant({
+  market,
+  userBalance,
+  side,
+}: RiskAssistantProps) {
+  const [loading, setLoading] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
-  const [expanded, setExpanded] = useState<boolean>(false)
+
+  const TEST_FORCE_READY = true
 
   const runAnalysis = async () => {
+    if (TEST_FORCE_READY) return
     setLoading(true)
+
     try {
       const external = await fetchExternalSignals(market, mockApi)
 
-      const p_mkt = Number(side === 'yes' ? market.yes_price : (market.no_price ?? (1 - market.yes_price)))
-      const externalProb = Number(external.external_probability ?? 0.5)
-      const directional = Number(external.directional_consensus ?? 0)
-      const liquidity = Math.min(1, (market.volume_total || 0) / 100000)
+      const p_mkt = Number(
+        side === 'yes'
+          ? market.yes_price
+          : market.no_price ?? 1 - market.yes_price
+      )
 
       const p_final = blendProbability(
         p_mkt,
-        externalProb,
-        side === 'yes' ? directional : -directional,
-        liquidity
+        Number(external.external_probability ?? 0.5),
+        side === 'yes'
+          ? Number(external.directional_consensus ?? 0)
+          : -Number(external.directional_consensus ?? 0),
+        Math.min(1, (market.volume_total || 0) / 100000)
       )
 
-      const confidence = Number(external.confidence ?? 0.5)
-      const position = calculateRiskManagedPosition(userBalance, p_mkt, p_final, confidence)
+      const position = calculateRiskManagedPosition(
+        userBalance,
+        p_mkt,
+        p_final,
+        Number(external.confidence ?? 0.5)
+      )
 
       setAnalysis({ external, p_final, position, p_mkt })
-    } catch (error) {
-      console.error('Error running analysis:', error)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (market && userBalance > 0) {
-      runAnalysis()
+    if (!TEST_FORCE_READY || !market) return
+
+    const p_mkt = Number(
+      side === 'yes'
+        ? market.yes_price
+        : market.no_price ?? 1 - market.yes_price
+    )
+
+    const external = {
+      external_probability: p_mkt,
+      confidence: 0.72,
+      news_intensity: 0.4,
+      directional_consensus: 0.05,
+      macro_shock: 0.02,
+      summary: 'Análise simulada para visualização.',
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    const position = calculateRiskManagedPosition(
+      userBalance || 1000,
+      p_mkt,
+      p_mkt,
+      external.confidence
+    )
+
+    setAnalysis({ external, p_final: p_mkt, position, p_mkt })
   }, [market?.id, side, userBalance])
 
   if (!analysis) {
     return (
-      <Card className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-100">
-              <Sparkles className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">Assistente de Risco IA</p>
-              <p className="text-sm text-slate-600">Análise inteligente de posição</p>
-            </div>
-          </div>
-          <Button onClick={runAnalysis} disabled={loading} size="sm" className="bg-purple-600 hover:bg-purple-700">
-            {loading ? 'Analisando...' : 'Analisar'}
-          </Button>
-        </div>
-      </Card>
+      <div className="p-4 text-sm text-slate-500">
+        {loading ? 'Analisando mercado…' : 'Preparando análise…'}
+      </div>
     )
   }
 
   const { external, p_final, position, p_mkt } = analysis
   const riskLevel = getRiskLevel(position.kelly_fraction_pct)
-  const hasEdge = parseFloat(position.edge) > 0
+  const hasEdge = Number(position.edge) > 0
 
   return (
-    <Card className="overflow-hidden border-purple-200">
-      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-6 border-b border-purple-200">
-        <div className="flex items-start justify-between mb-4">
+    <div>
+      <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
+
+        {/* HEADER */}
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-100 to-purple-100">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-600">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="p-2 rounded-lg bg-violet-600">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
+
             <div>
-              <p className="font-semibold text-slate-900">Assistente de Risco IA</p>
-              <Badge className="mt-1 bg-purple-100 text-purple-700">Confiança: {(external.confidence * 100).toFixed(0)}%</Badge>
+              <p className="font-semibold text-slate-900">
+                Assistente de Risco IA
+              </p>
+              <p className="text-xs text-slate-600">
+                Confiança {Math.round(external.confidence * 100)}%
+              </p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={runAnalysis} disabled={loading}>
-            <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={runAnalysis}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={cn('w-4 h-4', loading && 'animate-spin')}
+            />
           </Button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-white rounded-lg p-3">
-            <p className="text-xs text-slate-500 mb-1">Mercado</p>
-            <p className="text-lg font-bold text-slate-900">{(p_mkt * 100).toFixed(0)}%</p>
-          </div>
-          <div className="bg-white rounded-lg p-3">
-            <p className="text-xs text-slate-500 mb-1">Fontes Externas</p>
-            <p className="text-lg font-bold text-blue-600">{(external.external_probability * 100).toFixed(0)}%</p>
-          </div>
-          <div className="bg-purple-600 rounded-lg p-3 text-white">
-            <p className="text-xs text-purple-100 mb-1">IA Combinada</p>
-            <p className="text-lg font-bold">{(p_final * 100).toFixed(0)}%</p>
-          </div>
+        {/* PROBABILIDADES */}
+        <div className="grid grid-cols-3 gap-3 px-4 py-4">
+          <StatCard label="Mercado" value={`${(p_mkt * 100).toFixed(0)}%`} />
+          <StatCard
+            label="Fontes Externas"
+            value={`${(external.external_probability * 100).toFixed(0)}%`}
+          />
+          <StatCard
+            label="IA Combinada"
+            value={`${(p_final * 100).toFixed(0)}%`}
+            highlight
+          />
         </div>
 
-        {hasEdge ? (
-          <div className="bg-emerald-100 border border-emerald-300 rounded-lg p-3 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm font-medium text-emerald-900">Edge estatística de {position.edge}% detectada</span>
-          </div>
-        ) : (
-          <div className="bg-amber-100 border border-amber-300 rounded-lg p-3 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-medium text-amber-900">Sem edge clara (mercado eficiente)</span>
-          </div>
-        )}
-      </div>
+        {/* EDGE */}
+        <div
+          className={cn(
+            'mx-4 mb-4 rounded-xl p-3 flex items-center gap-2',
+            hasEdge
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-amber-50 text-amber-700'
+          )}
+        >
+          {hasEdge ? <TrendingUp size={16} /> : <AlertTriangle size={16} />}
+          <span className="text-sm font-medium">
+            {hasEdge
+              ? `Edge estatística de ${position.edge}% detectada`
+              : 'Sem edge clara (mercado eficiente)'}
+          </span>
+        </div>
 
-      <div className="p-6 space-y-4">
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-900">Posição Recomendada (Kelly 0.25×)</h4>
+        {/* POSIÇÃO */}
+        <div className="px-4 pb-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-semibold text-slate-900">
+              Posição Recomendada
+              <span className="ml-2 text-sm text-slate-500 font-normal">
+                (Kelly 0.25×)
+              </span>
+            </h4>
+
             <Badge
               className={cn(
-                riskLevel.color === 'emerald' ? 'bg-emerald-100 text-emerald-700' :
-                  riskLevel.color === 'green' ? 'bg-green-100 text-green-700' :
-                    riskLevel.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' : 'bg-rose-100 text-rose-700'
+                'whitespace-nowrap',
+                riskLevel.color === 'emerald' &&
+                  'bg-emerald-100 text-emerald-700',
+                riskLevel.color === 'yellow' &&
+                  'bg-yellow-100 text-yellow-700',
+                riskLevel.color === 'rose' &&
+                  'bg-rose-100 text-rose-700'
               )}
             >
               Risco {riskLevel.label}
             </Badge>
           </div>
 
-          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Valor Recomendado</span>
-              <span className="text-lg font-bold text-slate-900">{formatBRL(position.stake_recommended_brl)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Contratos</span>
-              <span className="font-semibold text-slate-900">{position.shares}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">% do Saldo (Kelly)</span>
-              <span className="font-semibold text-purple-600">{position.kelly_fraction_pct}%</span>
-            </div>
+          <div className="rounded-xl bg-slate-50 p-4 space-y-3">
+            <InfoRow
+              label="Valor Recomendado"
+              value={formatBRL(position.stake_recommended_brl)}
+              strong
+            />
+            <InfoRow label="Contratos" value={position.shares} />
+            <InfoRow
+              label="% do Saldo"
+              value={`${position.kelly_fraction_pct}%`}
+              accent
+            />
           </div>
         </div>
 
-        <div>
-          <h4 className="font-semibold text-slate-900 mb-3">Cenários</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
-              <p className="text-xs text-emerald-700 mb-1">✓ Se Ganhar</p>
-              <p className="text-xl font-bold text-emerald-600">+{formatBRL(position.max_gain_brl)}</p>
-              <p className="text-xs text-emerald-600 mt-1">ROI: +{position.roi_pct}%</p>
-            </div>
-            <div className="bg-rose-50 rounded-lg p-3 border border-rose-200">
-              <p className="text-xs text-rose-700 mb-1">✗ Se Perder</p>
-              <p className="text-xl font-bold text-rose-600">-{formatBRL(position.max_loss_brl)}</p>
-              <p className="text-xs text-rose-600 mt-1">Perda total</p>
-            </div>
-          </div>
+        {/* EV */}
+        <div className="mx-4 mb-4 flex justify-between">
+          <span className="text-sm text-slate-600">
+            Valor Esperado (EV)
+          </span>
+          <span
+            className={cn(
+              'font-bold',
+              position.expected_value_brl >= 0
+                ? 'text-emerald-600'
+                : 'text-rose-600'
+            )}
+          >
+            {position.expected_value_brl >= 0 ? '+' : ''}
+            {formatBRL(position.expected_value_brl)}
+          </span>
         </div>
 
-        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-900">Valor Esperado (EV)</span>
-            <span className={cn('font-bold', position.expected_value_brl >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
-              {position.expected_value_brl >= 0 ? '+' : ''}{formatBRL(position.expected_value_brl)}
-            </span>
-          </div>
-        </div>
-
-        <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
-          {expanded ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
-          {expanded ? 'Menos Detalhes' : 'Ver Análise Completa'}
+        {/* EXPAND */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full p-5 border-t rounded-t-none justify-center"
+        >
+          {expanded ? 'Menos detalhes' : 'Ver análise completa'}
         </Button>
 
         {expanded && (
-          <div className="space-y-4 pt-4 border-t">
-            <div>
-              <h4 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                <Info className="w-4 h-4" />
-                Sinais Externos
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Intensidade Noticiosa</span>
-                  <span className="font-medium">{(external.news_intensity * 100).toFixed(0)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Consenso Direcional</span>
-                  <span className="font-medium">{external.directional_consensus > 0 ? '+' : ''}{(external.directional_consensus * 100).toFixed(0)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Choque Macro</span>
-                  <span className="font-medium">{(external.macro_shock * 100).toFixed(0)}%</span>
-                </div>
-              </div>
-            </div>
+          <div className="px-4 py-4 space-y-3 border-t text-sm">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Info size={14} /> Sinais Externos
+            </h4>
 
-            {external.key_indicators?.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2">Indicadores Chave</h4>
-                <div className="flex flex-wrap gap-2">
-                  {external.key_indicators.map((indicator: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-xs">{indicator}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {external.sources?.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2">Fontes Consultadas</h4>
-                <ul className="text-xs text-slate-600 space-y-1">
-                  {external.sources.map((source: string, i: number) => (
-                    <li key={i}>• {source}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <Detail label="Intensidade Noticiosa" value={external.news_intensity} />
+            <Detail label="Consenso Direcional" value={external.directional_consensus} />
+            <Detail label="Choque Macro" value={external.macro_shock} />
 
             {external.summary && (
-              <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-sm text-slate-700">{external.summary}</p>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                {external.summary}
               </div>
             )}
           </div>
         )}
 
-        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-          <Shield className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700">
-            <strong>Gestão de Risco:</strong> Esta recomendação usa Kelly Criterion conservador (0.25×). Nunca invista mais do que pode perder. Resultados passados não garantem resultados futuros.
+        {/* RISCO */}
+        <div className="mx-4 mb-4 rounded-xl bg-amber-50 p-3 flex gap-2">
+          <Shield size={16} className="text-amber-600 mt-0.5" />
+          <p className="text-xs text-amber-700 leading-relaxed">
+            <strong>Gestão de Risco:</strong> Kelly conservador (0.25×).
+            Nunca invista mais do que pode perder.
           </p>
         </div>
       </div>
-    </Card>
+    </div>
+  )
+}
+
+/* COMPONENTES AUX */
+
+function StatCard({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-xl p-4 text-center',
+        highlight
+          ? 'bg-violet-600 text-white'
+          : 'bg-white shadow-sm'
+      )}
+    >
+      <p className="text-xs opacity-80">{label}</p>
+      <p className="text-xl font-bold">{value}</p>
+    </div>
+  )
+}
+
+function InfoRow({
+  label,
+  value,
+  strong,
+  accent,
+}: any) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-slate-600">{label}</span>
+      <span
+        className={cn(
+          'font-medium',
+          strong && 'text-lg font-bold',
+          accent && 'text-violet-600'
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-slate-600">{label}</span>
+      <span className="font-medium">{(value * 100).toFixed(0)}%</span>
+    </div>
   )
 }

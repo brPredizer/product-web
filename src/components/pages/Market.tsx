@@ -1,15 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useId } from "react";
+import { useAuth } from '@/context/AuthContext';
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
 import { authClient } from "@/app/api/auth";
+import { apiRequest, createIdempotencyKey } from "@/app/api/api";
 import { mockApi } from "@/app/api/mockClient";
+import { marketsClient } from '@/app/api/markets/client';
 import { createPageUrl } from "@/routes";
 
 import { Button } from "@/components/ui/button";
@@ -27,12 +30,21 @@ type Props = {
 };
 
 const categoryLabels: Record<string, string> = {
-  politics: "Política",
-  economy: "Economia",
-  technology: "Tecnologia",
-  entertainment: "Entretenimento",
-  sports: "Esportes",
-  global_events: "Eventos Globais",
+  'EM-ALTA': 'Em Alta',
+  'NOVIDADES': 'Novidades',
+  'TODAS': 'Todas',
+  'POLITICA': 'Política',
+  'ESPORTES': 'Esportes',
+  'CULTURA': 'Cultura',
+  'CRIPTOMOEDAS': 'Criptomoedas',
+  'CLIMA': 'Clima',
+  'ECONOMIA': 'Economia',
+  'MENCOES': 'Menções',
+  'EMPRESAS': 'Empresas',
+  'FINANCAS': 'Finanças',
+  'TECNOLOGIA-E-CIENCIA': 'Tecnologia e Ciência',
+  'SAUDE': 'Saúde',
+  'MUNDO': 'Mundo',
 };
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -44,6 +56,8 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 export default function Market({ user, refreshUser }: Props) {
+  const { user: authUser, walletAvailableBalance } = useAuth();
+  const effectiveUser = user ?? authUser;
   const [tradeSide, setTradeSide] = useState<string>("yes");
   const [iaOpen, setIaOpen] = useState<boolean>(false);
   const riskPanelId = useId();
@@ -60,67 +74,98 @@ export default function Market({ user, refreshUser }: Props) {
       </span>
     </>
   );
+
   const searchParams = useSearchParams();
   const marketId = searchParams.get("id");
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const pathname = usePathname();
 
   const { data: market, isLoading } = useQuery<any>({
     queryKey: ["market", marketId],
-    queryFn: () => (mockApi as any).entities.Market.filter({ id: marketId }),
-    select: (data: any) => data?.[0],
+    queryFn: async () => {
+      if (!marketId) return null;
+      try {
+        const res = await apiRequest<any>(`/markets/${marketId}`);
+        // backend may return the market object directly
+        if (!res) return null;
+        // if wrapped in { data: ... } or { items: [...] }, handle common shapes
+        const raw = res.data ?? (res.items && Array.isArray(res.items) ? res.items[0] : res);
+        if (!raw) return null;
+
+        const { normalizeMarket } = await import("@/lib/normalizeMarket");
+        const normalized = normalizeMarket(raw);
+        return normalized;
+      } catch (err) {
+        return null;
+      }
+    },
     enabled: !!marketId,
   });
 
+  // fetch history points for chart
+  const { data: history = [] } = useQuery<any[]>({
+    queryKey: ["marketHistory", marketId],
+    queryFn: async () => {
+      if (!marketId) return [];
+      try {
+        const res = await apiRequest<any>(`/markets/${marketId}/history`);
+        if (!res) return [];
+        const list = Array.isArray(res) ? res : (Array.isArray(res.items) ? res.items : (Array.isArray(res.data) ? res.data : []));
+        const { normalizeHistoryPoint } = await import("@/lib/normalizeMarket");
+        return list.map((p: any) => normalizeHistoryPoint(p)).filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    },
+    enabled: !!marketId,
+  });
+
+  const chartData = (history || []).map((p: any) => ({
+    date: p.timestamp || p.date || new Date().toISOString(),
+    price: Math.round((p.yesPrice ?? p.yes_price ?? 0) * 100),
+    volume: Number(p.volume ?? 0),
+  }));
+
   const { data: positions = [] } = useQuery<any[]>({
-    queryKey: ["positions", marketId, user?.id],
+    queryKey: ["positions", marketId, effectiveUser?.id],
     queryFn: () =>
       (mockApi as any).entities.Position.filter({
         market_id: marketId,
-        user_id: user?.id,
+        user_id: effectiveUser?.id,
         status: "open",
       }),
-    enabled: !!marketId && !!user?.id,
+    enabled: !!marketId && !!effectiveUser?.id,
   });
 
   const tradeMutation = useMutation<void, unknown, any>({
     mutationFn: async (tradeData: any) => {
       const { side, amount, contracts, price } = tradeData;
 
-      await (mockApi as any).entities.Position.create({
-        market_id: marketId,
-        user_id: user.id,
-        side,
-        contracts,
-        average_price: price,
-        total_invested: amount,
-        market_title: market.title,
+      // call real backend trade endpoint
+      const res = await marketsClient.buyMarket({
+        MarketId: String(marketId),
+        Side: side,
+        Amount: Number(amount),
+        IdempotencyKey: createIdempotencyKey(),
       });
 
-      await (mockApi as any).entities.Transaction.create({
-        user_id: user.id,
-        type: "buy",
-        amount,
-        net_amount: amount,
-        market_id: marketId,
-        market_title: market.title,
-        side,
-        contracts,
-        price,
-        description: `Compra de ${contracts} cotas ${String(side).toUpperCase()} em "${market.title}"`,
-      });
+      // try to extract new balance from common shapes and coerce to number
+      const rawNewBalance = res?.NewBalance ?? res?.data?.NewBalance ?? res?.data?.newBalance ?? res?.newBalance;
+      let parsedNewBalance: number | null = null;
+      if (typeof rawNewBalance === 'number') parsedNewBalance = rawNewBalance;
+      else if (typeof rawNewBalance === 'string' && rawNewBalance.trim() !== '') {
+        const v = parseFloat(rawNewBalance);
+        if (!isNaN(v)) parsedNewBalance = v;
+      }
 
-      const newBalance = (user.balance || 0) - amount;
-      await authClient.updateUser({
-        balance: newBalance,
-        total_wagered: (user.total_wagered || 0) + amount,
-        markets_participated: (user.markets_participated || 0) + 1,
-      });
-
-      await (mockApi as any).entities.Market.update(marketId, {
-        volume_total: (market.volume_total || 0) + amount,
-        [`${side}_contracts`]: (market[`${side}_contracts`] || 0) + contracts,
-      });
+      if (parsedNewBalance !== null) {
+        try {
+          await authClient.updateUser({ balance: parsedNewBalance });
+        } catch (e) {
+          // non-fatal: if updating session fails, continue
+          console.warn('Failed to update user session balance after trade', e);
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Operação realizada com sucesso!");
@@ -132,6 +177,19 @@ export default function Market({ user, refreshUser }: Props) {
       toast.error("Erro ao realizar operação");
     },
   });
+
+  const yesPrice = Number(market?.yes_price ?? 0.5);
+  const noPrice = Number(market?.no_price ?? (1 - yesPrice));
+
+  const yesPercent = Math.round(yesPrice * 100);
+  const noPercent = Math.max(0, 100 - yesPercent);
+
+  useEffect(() => {
+    const el = progressRef.current;
+    if (!el) return;
+    el.style.setProperty("--yes", `${yesPercent}%`);
+    el.style.setProperty("--no", `${noPercent}%`);
+  }, [yesPercent, noPercent]);
 
   if (isLoading) {
     return (
@@ -153,19 +211,6 @@ export default function Market({ user, refreshUser }: Props) {
       </div>
     );
   }
-
-  const yesPrice = Number(market?.yes_price ?? 0.5);
-  const noPrice = Number(market?.no_price ?? (1 - yesPrice));
-
-  const yesPercent = Math.round(yesPrice * 100);
-  const noPercent = Math.max(0, 100 - yesPercent);
-
-  useEffect(() => {
-    const el = progressRef.current;
-    if (!el) return;
-    el.style.setProperty("--yes", `${yesPercent}%`);
-    el.style.setProperty("--no", `${noPercent}%`);
-  }, [yesPercent, noPercent]);
 
   const status = statusLabels[market.status] || statusLabels.open;
   const isOpen = market.status === "open";
@@ -233,11 +278,11 @@ export default function Market({ user, refreshUser }: Props) {
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-8">
             {/* Chart */}
-            <PriceChart />
+            <PriceChart data={history} side={tradeSide as 'yes' | 'no'} />
 
             {/* User Position */}
             {Object.keys(userPosition).length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="bg-white  p-0">
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">Sua Posição</h3>
 
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -328,34 +373,24 @@ export default function Market({ user, refreshUser }: Props) {
           <div className="lg:col-span-1">
             {isOpen ? (
               <div className="sticky top-24 space-y-4">
-                {user && (
-                  <div className="space-y-2">
-                    {iaOpen ? (
+                {effectiveUser && (
+                  <div className="w-full">
+                    <div className="bg-white rounded-2xl border border-purple-200 overflow-hidden">
                       <button
                         type="button"
                         onClick={toggleIa}
-                        className="rounded-2xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-4 py-3 flex items-center justify-between gap-3 shadow-sm cursor-pointer focus:outline-none"
-                        aria-expanded="true"
+                        className="w-full px-4 py-3 flex items-center justify-between gap-3 focus:outline-none"
                         aria-controls={riskPanelId}
                         aria-label="Assistente de Risco IA"
                       >
                         {IaButtonContent}
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={toggleIa}
-                        className="rounded-2xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-4 py-3 flex items-center justify-between gap-3 shadow-sm cursor-pointer focus:outline-none"
-                        aria-expanded="false"
-                        aria-controls={riskPanelId}
-                        aria-label="Assistente de Risco IA"
-                      >
-                        {IaButtonContent}
-                      </button>
-                    )}
 
-                    <div id={riskPanelId} hidden={!iaOpen} aria-live="polite">
-                      {iaOpen && <RiskAssistant market={market} userBalance={user.balance || 0} side={tradeSide} />}
+                      {iaOpen && (
+                        <div id={riskPanelId} className="p-4" aria-live="polite">
+                          <RiskAssistant market={market} userBalance={walletAvailableBalance ?? effectiveUser?.balance ?? 0} side={tradeSide} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -370,11 +405,10 @@ export default function Market({ user, refreshUser }: Props) {
                     <button
                       type="button"
                       onClick={() => setTradeSide("yes")}
-                      className={`rounded-xl border bg-gradient-to-br p-4 text-center transition-all ${
-                        tradeSide === "yes"
-                          ? "border-emerald-300 ring-2 ring-emerald-200 from-emerald-50 to-white"
-                          : "border-slate-200 from-slate-50 to-white hover:border-slate-300"
-                      }`}
+                      className={`rounded-xl border bg-gradient-to-br p-4 text-center transition-all ${tradeSide === "yes"
+                        ? "border-emerald-300 ring-2 ring-emerald-200 from-emerald-50 to-white"
+                        : "border-slate-200 from-slate-50 to-white hover:border-slate-300"
+                        }`}
                     >
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-xs font-semibold text-emerald-700">SIM</span>
@@ -387,11 +421,10 @@ export default function Market({ user, refreshUser }: Props) {
                     <button
                       type="button"
                       onClick={() => setTradeSide("no")}
-                      className={`rounded-xl border bg-gradient-to-br p-4 text-center transition-all ${
-                        tradeSide === "no"
-                          ? "border-rose-300 ring-2 ring-rose-200 from-rose-50 to-white"
-                          : "border-slate-200 from-slate-50 to-white hover:border-slate-300"
-                      }`}
+                      className={`rounded-xl border bg-gradient-to-br p-4 text-center transition-all ${tradeSide === "no"
+                        ? "border-rose-300 ring-2 ring-rose-200 from-rose-50 to-white"
+                        : "border-slate-200 from-slate-50 to-white hover:border-slate-300"
+                        }`}
                     >
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-xs font-semibold text-rose-700">NÃO</span>
@@ -408,10 +441,7 @@ export default function Market({ user, refreshUser }: Props) {
                       <span className="text-rose-700">NÃO</span>
                     </div>
 
-                    <div className="mt-2 h-2 rounded-full bg-slate-200 overflow-hidden flex market-progress" style={{
-                      ['--yes' as any]: `${yesPercent}%`,
-                      ['--no' as any]: `${noPercent}%`
-                    }}>
+                    <div ref={progressRef} className="mt-2 h-2 rounded-full bg-slate-200 overflow-hidden flex market-progress">
                       <div className="bg-emerald-600 market-progress-fill-yes" />
                       <div className="bg-rose-600 market-progress-fill-no" />
                     </div>
@@ -422,14 +452,30 @@ export default function Market({ user, refreshUser }: Props) {
                     </div>
                   </div>
 
-                  <TradingPanel
-                    market={market}
-                    userBalance={user?.balance || 0}
-                    userId={user?.id}
-                    onTrade={(data: any) => tradeMutation.mutate(data)}
-                    side={tradeSide}
-                    onSideChange={setTradeSide}
-                  />
+                  {effectiveUser ? (
+                    <TradingPanel
+                      market={market}
+                      userBalance={walletAvailableBalance ?? effectiveUser?.balance ?? 0}
+                      userId={effectiveUser?.id}
+                      onTrade={(data: any) => tradeMutation.mutate(data)}
+                      side={tradeSide}
+                      onSideChange={setTradeSide}
+                      hideSideSelector={true}
+                      showRiskAssistant={false}
+                    />
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+                      {/* Removido: cartões SIM/NÃO duplicados (já presentes acima) */}
+
+                      <p className="text-sm text-slate-600 mb-4">Faça login para negociar neste mercado.</p>
+
+                      <div className="flex items-center justify-center">
+                        <Link href={createPageUrl("SignIn") + `?next=${encodeURIComponent(pathname ?? "/")}`}>
+                          <Button className="w-full  bg-emerald-600 hover:bg-emerald-700">Entrar para negociar</Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

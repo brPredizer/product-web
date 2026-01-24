@@ -321,6 +321,11 @@ const requestWithAuth = async <T>(
     return await apiRequest<T>(path, { ...options, headers });
   } catch (error: any) {
     if (allowRefresh && error?.status === 401) {
+      const { refreshToken } = getSession();
+      if (!refreshToken) {
+        // No refresh token available, do not attempt refresh (avoid empty-body 400)
+        throw error;
+      }
       try {
         await refresh();
       } catch (refreshError) {
@@ -477,7 +482,9 @@ const refresh = async () => {
     console.debug('[auth] refresh() - hasStoredRefreshToken=', Boolean(refreshToken));
   } catch (e) {}
 
-  const body = refreshToken ? { refreshToken } : {};
+  // Some backends expect PascalCase 'RefreshToken' while others accept 'refreshToken'.
+  // Send both to maximize compatibility with different API models.
+  const body = refreshToken ? { RefreshToken: refreshToken, refreshToken } : {};
   try {
     const data = await request('/auth/refresh', {
       method: 'POST',

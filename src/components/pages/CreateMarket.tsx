@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { mockApi } from '@/app/api/mockClient';
+import { apiRequest, createIdempotencyKey } from '@/app/api/api';
 import { isAdminL1 } from '@/app/api/api';
 import { createPageUrl } from '@/routes';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,20 +42,18 @@ const SelectValueC = (SelectValue as unknown) as React.ComponentType<any>;
 const mockApiAny = mockApi as any;
 
 const categories = [
-  { id: 'trending', name: 'Em Alta' },
-  { id: 'new', name: 'Novidades' },
-  { id: 'politics', name: 'Política' },
-  { id: 'sports', name: 'Esportes' },
-  { id: 'culture', name: 'Cultura' },
-  { id: 'crypto', name: 'Criptomoedas' },
-  { id: 'weather', name: 'Clima' },
-  { id: 'economy', name: 'Economia' },
-  { id: 'mentions', name: 'Menções' },
-  { id: 'companies', name: 'Empresas' },
-  { id: 'finance', name: 'Finanças' },
-  { id: 'technology', name: 'Tecnologia e Ciência' },
-  { id: 'health', name: 'Saúde' },
-  { id: 'world', name: 'Mundo' },
+  { id: 'politica', name: 'Política' },
+  { id: 'esportes', name: 'Esportes' },
+  { id: 'cultura', name: 'Cultura' },
+  { id: 'criptomoedas', name: 'Criptomoedas' },
+  { id: 'clima', name: 'Clima' },
+  { id: 'economia', name: 'Economia' },
+  { id: 'mencoes', name: 'Menções' },
+  { id: 'empresas', name: 'Empresas' },
+  { id: 'financas', name: 'Finanças' },
+  { id: 'tecnologia-e-ciencia', name: 'Tecnologia e Ciência' },
+  { id: 'saude', name: 'Saúde' },
+  { id: 'mundo', name: 'Mundo' },
 ];
 
 const toLocalInputValue = (date: Date) => {
@@ -155,7 +154,7 @@ export default function CreateMarket({ user }: Props) {
 
   const [formData, setFormData] = useState({
     title: '',
-    category: 'economy',
+    category: 'economia',
     description: '',
     resolutionSource: '',
     closingDate: defaultClosing,
@@ -172,17 +171,44 @@ export default function CreateMarket({ user }: Props) {
   const noPrice = (noInt / 100).toFixed(2);
 
   const createMutation = useMutation<any, any, any>({
-    mutationFn: async (payload) => mockApiAny.entities.Market.create(payload),
+    mutationFn: async (payload) => {
+      // Call backend create endpoint
+      const headers: Record<string, string> = {
+        'Idempotency-Key': createIdempotencyKey(),
+      };
+      const body = {
+        title: payload.title,
+        description: payload.description,
+        category: payload.category,
+        tags: payload.tags ?? [],
+        probability: payload.probability,
+        closingDate: payload.closing_date ?? payload.closingDate,
+        resolutionDate: payload.resolution_date ?? payload.resolutionDate,
+        resolutionSource: payload.resolution_source ?? payload.resolutionSource,
+        featured: payload.featured ?? false,
+      };
+
+      const res = await apiRequest<any>('/markets/create-market', { method: 'POST', body, headers });
+      return res;
+    },
     onSuccess: async (market) => {
       toast.success('Mercado criado com sucesso');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-markets'] } as any),
         queryClient.invalidateQueries({ queryKey: ['markets', 'explore'] } as any),
       ]);
-      router.push(createPageUrl(`Market?id=${market.id}`));
+      // API should return created MarketResponse with id
+      const createdId = market?.id ?? market?.data?.id;
+      if (createdId) {
+        router.push(createPageUrl(`Market?id=${createdId}`));
+      } else {
+        // fallback: go to explore
+        router.push(createPageUrl('Explore'));
+      }
     },
-    onError: () => {
-      toast.error('Erro ao criar mercado');
+    onError: (err: any) => {
+      const message = err?.message ?? 'Erro ao criar mercado';
+      toast.error(message);
     },
   });
 
@@ -212,23 +238,14 @@ export default function CreateMarket({ user }: Props) {
 
     createMutation.mutate({
       title: formData.title.trim(),
-      category: formData.category,
-      status: 'open',
-      yes_price: yes,
-      no_price: no,
-      yes_contracts: 0,
-      no_contracts: 0,
-      volume_total: 0,
-      volume_24h: 0,
-      volume_7d_avg: 0,
-      volatility_24h: 0,
-      closing_date: closingIso,
-      resolution_date: resolutionIso,
-      resolution_source: formData.resolutionSource.trim(),
       description: formData.description.trim(),
+      category: formData.category,
+      tags: [],
+      probability: yesInt,
+      closingDate: closingIso,
+      resolutionDate: resolutionIso,
+      resolutionSource: formData.resolutionSource.trim(),
       featured: formData.featured,
-      created_by: user.id,
-      creator_email: user.email,
     });
   };
 

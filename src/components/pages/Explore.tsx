@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { mockApi } from "@/app/api/mockClient";
+import { apiRequest } from "@/app/api/api";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,23 +35,7 @@ import MarketCard from "@/components/ui/MarketCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-const categories = [
-  { id: "trending", name: "Em Alta" },
-  { id: "new", name: "Novidades" },
-  { id: "all", name: "Todas" },
-  { id: "politics", name: "Política" },
-  { id: "sports", name: "Esportes" },
-  { id: "culture", name: "Cultura" },
-  { id: "crypto", name: "Criptomoedas" },
-  { id: "weather", name: "Clima" },
-  { id: "economy", name: "Economia" },
-  { id: "mentions", name: "Menções" },
-  { id: "companies", name: "Empresas" },
-  { id: "finance", name: "Finanças" },
-  { id: "technology", name: "Tecnologia e Ciência" },
-  { id: "health", name: "Saúde" },
-  { id: "world", name: "Mundo" },
-];
+// (removed unused SPECIAL_CATEGORIES) keep categories list below with PT-BR labels
 
 const sortOptions = [
   { value: "-volume_total", label: "Mais Popular" },
@@ -82,6 +66,7 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // agora 0 ou 1 categoria
   const [sort, setSort] = useState<string>("-volume_total");
   const [viewMode, setViewMode] = useState<string>("grid");
@@ -91,54 +76,174 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
   const [closingRange, setClosingRange] = useState<string>("any");
   const [statusFilters, setStatusFilters] = useState<string[]>([]); // 'new', 'trending'
 
+  // Lista fixa de categorias (slugs do backend) com nomes em PT-BR
+  // Ordem: Todas, Em Alta, Novidades, depois o resto conforme seed
+  const categories = [
+    { id: "todas", name: "Todas" },
+    { id: "em-alta", name: "Em Alta" },
+    { id: "novidades", name: "Novidades" },
+    { id: "clima", name: "Clima" },
+    { id: "criptomoedas", name: "Criptomoedas" },
+    { id: "cultura", name: "Cultura" },
+    { id: "economia", name: "Economia" },
+    { id: "empresas", name: "Empresas" },
+    { id: "esportes", name: "Esportes" },
+    { id: "financas", name: "Finanças" },
+    { id: "mencoes", name: "Menções" },
+    { id: "mundo", name: "Mundo" },
+    { id: "politica", name: "Política" },
+    { id: "saude", name: "Saúde" },
+    { id: "tecnologia-e-ciencia", name: "Tecnologia e Ciência" },
+  ];
+
+  // Garante que usamos o slug correto do backend antes de enviar (lookup a partir da lista fixa)
+  const getSlugForCategory = (value?: string) => {
+    if (!value) return undefined;
+    // If value already matches an id, return it
+    const foundById = categories.find((c) => c.id === value);
+    if (foundById) return foundById.id;
+    // Try matching by name (case-insensitive, normalize accents)
+    const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    try {
+      const target = norm(value);
+      const foundByName = categories.find((c) => norm(c.name) === target);
+      if (foundByName) return foundByName.id;
+    } catch (e) {
+      // Fallback: return original value
+      return value;
+    }
+    return value;
+  };
+
   useEffect(() => {
     const categoryFromUrl = searchParams.get("category");
 
     if (!categoryFromUrl) return;
 
-    const exists = categories.some((c) => c.id === categoryFromUrl && c.id !== "all");
-    if (!exists) return;
+    // allow comma-separated list in URL
+    const parts = categoryFromUrl.split(",").map((p) => p.trim()).filter(Boolean);
+    const slugs = parts.map((p) => getSlugForCategory(p) ?? p);
+
+    const valid = slugs.filter((s) => categories.some((c) => c.id === s && c.id !== "todas"));
+    if (valid.length === 0) return;
 
     setSelectedCategories((prev) => {
-      const same = prev.length === 1 && prev[0] === categoryFromUrl;
-      if (same) return prev;
-      return [categoryFromUrl];
+      // if identical, no change
+      const prevSorted = [...prev].sort().join(",");
+      const newSorted = [...valid].sort().join(",");
+      if (prevSorted === newSorted) return prev;
+      return valid;
     });
   }, [searchParams]);
 
   const setCategoryAndUrl = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
 
-    if (id === "all") {
+    if (id === "todas") {
       setSelectedCategories([]);
       params.delete("category");
       router.replace(`${createPageUrl("Explore")}?${params.toString()}`, { scroll: false });
       return;
     }
 
-    setSelectedCategories([id]);
-    params.set("category", id);
-    router.replace(`${createPageUrl("Explore")}?${params.toString()}`, { scroll: false });
+    // toggle id in selectedCategories
+    setSelectedCategories((prev) => {
+      const exists = prev.includes(id);
+      const next = exists ? prev.filter((v) => v !== id) : [...prev, id];
+
+      if (next.length === 0) {
+        params.delete("category");
+      } else {
+        const slugs = next.map((v) => getSlugForCategory(v) ?? v);
+        params.set("category", slugs.join(","));
+      }
+
+      router.replace(`${createPageUrl("Explore")}?${params.toString()}`, { scroll: false });
+      return next;
+    });
   };
 
-  const isCategoryActive = (id: string) => (id === "all" ? selectedCategories.length === 0 : selectedCategories.includes(id));
+  const isCategoryActive = (id: string) => (id === "todas" ? selectedCategories.length === 0 : selectedCategories.includes(id));
 
   const toggleInArray = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
     setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
   };
 
+  const categoryParam = selectedCategories.length > 0 ? selectedCategories : undefined;
+
   const { data: markets = [], isLoading } = useQuery<any[]>({
-    queryKey: ["markets", "explore", sort],
+    queryKey: ["markets", "explore", sort, ...(selectedCategories || [])],
     queryFn: async () => {
-      const data = await (mockApi as any).entities.Market.filter({ status: "open" }, sort, 100);
-      return data;
+      try {
+        const qs = new URLSearchParams({ status: "open", limit: String(100), sort });
+        // map frontend sort tokens to backend-friendly values
+        const mapSort = (s: string) => {
+          if (!s) return undefined;
+          if (s === "-volume_total") return "popular";
+          if (s === "-created_date") return "recent";
+          if (s === "yes_price") return "probability:asc";
+          if (s === "-yes_price") return "probability:desc";
+          return s;
+        };
+
+        const backendSort = mapSort(sort) ?? "popular";
+        qs.set("sort", backendSort);
+
+        // Backend expects 'category' (lowercase). If multiple selected, send comma-separated slugs.
+        if (selectedCategories && selectedCategories.length > 0) {
+          const slugs = selectedCategories.map((c) => getSlugForCategory(c) ?? c);
+          qs.set("category", slugs.join(","));
+        }
+
+        const params = qs.toString();
+        const result = await apiRequest<any>(`/markets?${params}`);
+        if (!result) return [];
+
+        // extract array from common shapes
+        const rawList: any[] = Array.isArray(result)
+          ? result
+          : (Array.isArray(result.items) ? result.items : (Array.isArray(result.data) ? result.data : []));
+
+        // lazy-normalize here using central util to keep UI compatible
+        const { normalizeMarket } = await import("@/lib/normalizeMarket");
+        const normalized = rawList.map((r) => normalizeMarket(r));
+        return normalized;
+      } catch (err) {
+        return [];
+      }
     },
   });
 
+  // debounce search input to avoid spamming backend on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data: searchResults = [], isFetching: isSearching } = useQuery<any[]>({
+    queryKey: ["markets", "search", debouncedSearch],
+    queryFn: async () => {
+      try {
+        if (!debouncedSearch) return [];
+        const result = await apiRequest<any>(`/markets/search?title=${encodeURIComponent(debouncedSearch)}`);
+        if (!result) return [];
+        const rawList: any[] = Array.isArray(result)
+          ? result
+          : (Array.isArray(result.items) ? result.items : (Array.isArray(result.data) ? result.data : []));
+        const { normalizeMarket } = await import("@/lib/normalizeMarket");
+        return rawList.map((r) => normalizeMarket(r));
+      } catch (e) {
+        return [];
+      }
+    },
+    enabled: !!debouncedSearch,
+  });
+
   const filteredMarkets = useMemo(() => {
+    const source = debouncedSearch ? searchResults : markets;
     const now = Date.now();
 
-    return markets
+    return source
       .filter((market: any) => {
         const matchesSearch =
           !search ||
@@ -205,8 +310,8 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
         }
         if (sort === "-volatility_24h") return (b.volatility_24h || 0) - (a.volatility_24h || 0);
         return 0;
-      });
-  }, [markets, search, selectedCategories, probabilityFilters, closingRange, statusFilters, sort]);
+        });
+      }, [markets, searchResults, debouncedSearch, search, selectedCategories, probabilityFilters, closingRange, statusFilters, sort]);
 
   const activeFiltersCount =
     selectedCategories.length +

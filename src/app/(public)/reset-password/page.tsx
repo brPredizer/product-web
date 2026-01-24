@@ -27,6 +27,7 @@ function translateResetError(payload: any, err: any) {
     expired_reset_token: 'Esse código expirou. Solicite um novo por e-mail.',
     user_not_found: 'Não encontramos uma conta com esse e-mail.',
     too_many_requests: 'Muitas tentativas. Aguarde um pouco e tente novamente.',
+    external_account_cannot_change_password: 'Conta via Google — Sua conta foi criada com o Google. A senha só pode ser alterada nas configurações do Google.',
   };
 
   if (map[key]) return map[key];
@@ -126,7 +127,8 @@ export default function ResetPasswordCodePage(): JSX.Element {
       focusFirstCode();
     } catch (err) {
       console.error('Failed to send reset code:', err);
-      setError('Não foi possível enviar o código. Tente novamente.');
+      const payload = (err as any)?.payload || (err as any)?.response || null;
+      setError(translateResetError(payload, err));
       setShowConfirmModal(false);
     } finally {
       setSending(false);
@@ -141,7 +143,8 @@ export default function ResetPasswordCodePage(): JSX.Element {
       setSent(true);
     } catch (err) {
       console.error('Failed to resend reset code:', err);
-      setError('Não foi possível reenviar o código. Tente novamente.');
+      const payload = (err as any)?.payload || (err as any)?.response || null;
+      setError(translateResetError(payload, err));
     } finally {
       setResendLoading(false);
     }

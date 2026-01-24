@@ -251,6 +251,7 @@ function mapLedgerEntries(entries: any[] = []) {
     FEE: "fee",
     ORDER: "buy",
     BUY: "buy",
+    BET_BUY: "buy",
     SELL: "sell",
     PAYOUT: "payout",
   };
@@ -271,6 +272,7 @@ function mapLedgerEntries(entries: any[] = []) {
     fee: "Taxa",
     market: "Mercado",
     order: "Compra",
+    market_trade: "Compra",
     paymentintent: "Depósito",
     payment: "Pagamento",
     payout: "Pagamento",
@@ -281,6 +283,7 @@ function mapLedgerEntries(entries: any[] = []) {
     deposit: "deposit",
     fee: "fee",
     order: "buy",
+    // removed bet fallback - BET_BUY maps to buy now
     payment: "payout",
     payout: "payout",
     paymentintent: "deposit",
@@ -319,6 +322,7 @@ function mapLedgerEntries(entries: any[] = []) {
       typeMap[rawType] || typeMap[rawType.toUpperCase()] || "other";
 
     const amount = Number(entry?.amount ?? 0);
+    const feeNum = Number(entry?.fee ?? 0);
 
     const rawStatus = String(entry?.status || "");
     const normalizedStatus =
@@ -327,20 +331,31 @@ function mapLedgerEntries(entries: any[] = []) {
     const rawDescription =
       entry?.description || entry?.referenceType || entry?.type || "Movimento";
 
+    // If backend uses referenceType market_trade or type BET_BUY, prefer 'bet' kind
+    const refType = String(entry?.referenceType || "").toLowerCase();
+    if (refType.includes("market_trade") || String(entry?.type || "").toUpperCase() === "BET_BUY") {
+      normalizedType = "buy";
+    }
+
     if (normalizedType === "other") {
       normalizedType = resolveTypeFromText(rawDescription) || normalizedType;
     }
+
+    // For 'buy' entries, the ledger `amount` usually already includes the fee (negative).
+    // Display `net_amount` to the user as the spent amount excluding platform fee.
+    const computedNet =
+      normalizedType === "buy" ? Math.max(0, Math.abs(amount) - feeNum) : Math.abs(amount);
 
     return {
       id: entry?.id || entry?.referenceId || `${rawType || "entry"}-${index}`,
       type: normalizedType,
       amount,
-      net_amount: Math.abs(amount),
-      fee: Number(entry?.fee ?? 0),
+      net_amount: computedNet,
+      fee: feeNum,
       status: normalizedStatus?.key || entry?.status || null,
       statusLabel: normalizedStatus?.label || null,
       statusTone: normalizedStatus?.tone || null,
-      description: translateDescription(rawDescription),
+      description: translateDescription(rawDescription) || (refType.includes("market_trade") ? "Compra" : rawDescription),
       createdAt: entry?.createdAt ?? entry?.created_date ?? null,
     };
   });
@@ -372,6 +387,7 @@ function TransactionRow({ transaction }: { transaction: any }) {
       label: "Compra",
       sign: "-",
     },
+    
     sell: {
       icon: CreditCard,
       color: "text-purple-600 bg-purple-100",
@@ -424,7 +440,7 @@ function TransactionRow({ transaction }: { transaction: any }) {
           {config.sign}R$ {(transaction.net_amount || transaction.amount || 0).toFixed(2)}
         </p>
 
-        {transaction.fee > 0 && (
+        {transaction.fee > 0 && transaction.type !== 'buy' && (
           <p className="text-xs text-slate-500">Taxa: R$ {transaction.fee.toFixed(2)}</p>
         )}
 

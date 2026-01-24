@@ -146,6 +146,7 @@ export default function ResetPasswordNewPage(): JSX.Element {
           reset_code_expired: 'Código de reset expirado.',
           password_mismatch: 'A confirmação não coincide com a nova senha.',
           missing_current_password: 'Informe a senha atual.',
+          external_account_cannot_change_password: 'Conta via Google — Sua conta foi criada com o Google. A senha só pode ser alterada nas configurações do Google.',
         };
 
         if (map[key]) return map[key];

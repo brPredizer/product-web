@@ -106,6 +106,15 @@ const createDepositIntent = async ({
   const buyerEmail = session?.user?.email || session?.user?.username || undefined;
   const orderId = paymentIntentId ? `WALLET_DEPOSIT_${paymentIntentId}` : `WALLET_DEPOSIT_${Date.now()}`;
 
+  // include payer email in multiple shapes to satisfy different backend validations
+  const payerPayload: any = {};
+  if (buyerEmail) {
+    payerPayload.buyerEmail = buyerEmail;
+    payerPayload.payer = { email: buyerEmail };
+    // some backends validate PascalCase paths like Payer.Email
+    payerPayload.Payer = { Email: buyerEmail };
+  }
+
   const pixRes = await requestWithAuth<any>('/payments/mercadopago/pix', {
     method: 'POST',
     headers: { 'Idempotency-Key': returnedIdempotency },
@@ -113,7 +122,7 @@ const createDepositIntent = async ({
       amount: Number(amount),
       description: 'Depósito - carteira',
       orderId,
-      buyerEmail
+      ...payerPayload
     }
   });
 
