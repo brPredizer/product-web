@@ -1,4 +1,5 @@
 import '@/index.css';
+export const dynamic = 'force-dynamic';
 import Providers from './providers';
 import MercadoPagoSecurityScripts from '@/components/MercadoPagoSecurityScripts';
 import React, { ReactNode } from 'react';

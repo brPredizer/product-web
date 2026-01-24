@@ -17,8 +17,8 @@ export default function CardCheckoutPage() {
     setResult(null);
 
     try {
-      // @ts-ignore
-      const mp = typeof window !== "undefined" ? (window as any).MercadoPago?.(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY) || (window as any).MercadoPago : null;
+    // @ts-ignore
+    let mp = typeof window !== "undefined" ? (window as any).MercadoPago?.(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY) || (window as any).MercadoPago : null;
 
       if (!mp) {
         // try global constructor

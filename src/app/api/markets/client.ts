@@ -54,8 +54,6 @@ const buyMarket = async ({ MarketId, Side, Amount, IdempotencyKey }: BuyRequest)
     err.cause = e;
     throw err;
   }
-
-  return res;
 };
 
 export const marketsClient = {

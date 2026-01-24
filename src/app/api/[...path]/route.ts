@@ -71,4 +71,4 @@ export const PATCH = proxyHandler;
 export const DELETE = proxyHandler;
 export const OPTIONS = proxyHandler;
 
-export default proxyHandler;
+
