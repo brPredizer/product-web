@@ -119,6 +119,23 @@ export const apiRequest = async <T>(
     ...(headers || {})
   };
 
+  // If running in the browser and this is a mutating request, attempt to
+  // read the XSRF token cookie and forward it as `X-CSRF-Token` header so
+  // servers that use a double-submit cookie CSRF pattern can validate. VEREFICAR ISSO DEPOIS JOÃO VICTOR
+  try {
+    if (typeof window !== 'undefined') {
+      const methodLower = (method || 'GET').toLowerCase();
+      if (['post', 'put', 'delete', 'patch'].includes(methodLower)) {
+        const match = document.cookie.match(new RegExp('(^|;)\\s*XSRF-TOKEN=([^;]+)'));
+        if (match && match[2]) {
+          requestHeaders['X-CSRF-Token'] = decodeURIComponent(match[2]);
+        }
+      }
+    }
+  } catch (e) {
+    // ignore cookie read failures
+  }
+
   const options: RequestInit = {
     method,
     headers: requestHeaders,

@@ -316,16 +316,13 @@ const requestWithAuth = async <T>(
     ...(options.headers || {}),
     ...getAuthorizationHeader()
   };
-
   try {
     return await apiRequest<T>(path, { ...options, headers });
   } catch (error: any) {
     if (allowRefresh && error?.status === 401) {
-      const { refreshToken } = getSession();
-      if (!refreshToken) {
-        // No refresh token available, do not attempt refresh (avoid empty-body 400)
-        throw error;
-      }
+      // Try refresh even if we don't have a persisted refreshToken. In
+      // cookie-first setups the server will read the refresh token from an
+      // HttpOnly cookie when `credentials: 'include'` is used by `refresh()`.
       try {
         await refresh();
       } catch (refreshError) {
@@ -335,6 +332,7 @@ const requestWithAuth = async <T>(
         } catch (e) {}
         throw error;
       }
+
       const retryHeaders = {
         ...(options.headers || {}),
         ...getAuthorizationHeader()
@@ -484,11 +482,13 @@ const refresh = async () => {
 
   // Some backends expect PascalCase 'RefreshToken' while others accept 'refreshToken'.
   // Send both to maximize compatibility with different API models.
-  const body = refreshToken ? { RefreshToken: refreshToken, refreshToken } : {};
+  const body = refreshToken ? { RefreshToken: refreshToken, refreshToken } : undefined;
   try {
     const data = await request('/auth/refresh', {
       method: 'POST',
-      body,
+      // When cookie-based refresh is desired and we don't have a stored
+      // refresh token, send no body and rely on `credentials: 'include'`.
+      ...(body !== undefined ? { body } : {}),
       credentials: 'include'
     });
     return setSessionFromResponse(data as Record<string, any>);
