@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 
-import { mockApi } from "@/app/api/mockClient";
+import { apiRequest } from "@/app/api/api";
 import { createPageUrl } from "@/routes";
+import { normalizeMarket } from "@/lib/normalizeMarket";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,35 +27,54 @@ import {
 import MarketCard from "@/components/ui/MarketCard";
 
 const categories = [
-  { id: "trending", name: "Em Alta" },
-  { id: "new", name: "Novidades" },
-  { id: "all", name: "Todas" },
-  { id: "politics", name: "Política" },
-  { id: "sports", name: "Esportes" },
-  { id: "culture", name: "Cultura" },
-  { id: "crypto", name: "Criptomoedas" },
-  { id: "weather", name: "Clima" },
-  { id: "economy", name: "Economia" },
-  { id: "mentions", name: "Menções" },
-  { id: "companies", name: "Empresas" },
-  { id: "finance", name: "Finanças" },
-  { id: "technology", name: "Tecnologia e Ciência" },
-  { id: "health", name: "Saúde" },
-  { id: "world", name: "Mundo" },
+  { id: "TODAS", name: "Todas" },
+  { id: "EM-ALTA", name: "Em Alta" },
+  { id: "NOVIDADES", name: "Novidades" },
+  { id: "POLITICA", name: "Política" },
+  { id: "ESPORTES", name: "Esportes" },
+  { id: "CULTURA", name: "Cultura" },
+  { id: "CRIPTOMOEDAS", name: "Criptomoedas" },
+  { id: "CLIMA", name: "Clima" },
+  { id: "ECONOMIA", name: "Economia" },
+  { id: "MENCOES", name: "Menções" },
+  { id: "EMPRESAS", name: "Empresas" },
+  { id: "FINANCAS", name: "Finanças" },
+  { id: "TECNOLOGIA-E-CIENCIA", name: "Tecnologia e Ciência" },
+  { id: "SAUDE", name: "Saúde" },
+  { id: "MUNDO", name: "Mundo" },
 ];
+
+const categoryLabelMap = categories.reduce<Record<string, string>>((acc, cat) => {
+  acc[cat.id] = cat.name;
+  return acc;
+}, {});
 
 function exploreUrlWithCategory(categoryId?: string) {
   const base = createPageUrl("Explore");
-  if (!categoryId || categoryId === "all") return base;
+  if (!categoryId || categoryId === "TODAS") return base;
   return `${base}?category=${encodeURIComponent(categoryId)}`;
 }
 
 export default function Home(): JSX.Element {
-  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [activeCategory, setActiveCategory] = useState<string>("TODAS");
 
   const { data: markets = [], isLoading } = useQuery<any[]>({
     queryKey: ["markets", "open"],
-    queryFn: () => (mockApi as any).entities.Market.filter({ status: "open" }, "-volume_total", 50),
+    queryFn: async () => {
+      try {
+        const result = await apiRequest<any>(`/markets?status=open&limit=50&sort=popular`);
+        const rawList: any[] = Array.isArray(result)
+          ? result
+          : Array.isArray(result.items)
+            ? result.items
+            : Array.isArray(result.data)
+              ? result.data
+              : [];
+        return rawList.map((market) => normalizeMarket(market)).filter(Boolean);
+      } catch (error) {
+        return [];
+      }
+    },
   });
 
   const stats = useMemo(() => {
@@ -64,14 +84,32 @@ export default function Home(): JSX.Element {
     return { totalVolume, activeMarkets, totalUsers };
   }, [markets]);
 
-  const featuredMarkets = useMemo(() => markets.filter((m: any) => m.featured).slice(0, 3), [markets]);
+  const featuredMarkets = useMemo(() => markets.filter((m: any) => m.featured).slice(0, 9), [markets]);
 
   const trendingMarkets = useMemo(() => {
-    const filtered = activeCategory === "all" ? markets : markets.filter((m: any) => m.category === activeCategory);
+    const now = Date.now();
+    const filtered = (() => {
+      if (activeCategory === "TODAS") return markets;
+      if (activeCategory === "EM-ALTA") {
+        return markets.filter((m: any) => {
+          const vol24 = m.volume_24h || 0;
+          const vol7 = m.volume_7d_avg || 0;
+          return vol24 && vol7 ? vol24 >= vol7 * 1.2 : false;
+        });
+      }
+      if (activeCategory === "NOVIDADES") {
+        return markets.filter((m: any) => {
+          if (!m.created_date) return false;
+          const diffDays = (now - new Date(m.created_date).getTime()) / (1000 * 60 * 60 * 24);
+          return diffDays <= 7;
+        });
+      }
+      return markets.filter((m: any) => m.category === activeCategory);
+    })();
 
     return [...filtered]
       .sort((a: any, b: any) => (b.volume_total || 0) - (a.volume_total || 0))
-      .slice(0, 6);
+      .slice(0, 12);
   }, [markets, activeCategory]);
 
   return (
@@ -249,7 +287,7 @@ export default function Home(): JSX.Element {
                 <TrendingUp className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-semibold">Mais negociados</h3>
                 <span className="text-slate-500 text-sm">
-                  ({activeCategory === "all" ? "geral" : activeCategory})
+                  ({activeCategory === "TODAS" ? "geral" : (categoryLabelMap[activeCategory] ?? activeCategory)})
                 </span>
               </div>
 
@@ -331,14 +369,15 @@ export default function Home(): JSX.Element {
               <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">P</span>
               </div>
-              <span className="text-xl font-bold">
-                Predict<span className="text-emerald-300">X</span>
-              </span>
+            <span className="text-xl font-bold">Pre<span className="text-emerald-600">dizer</span></span>
+
             </div>
-            <p className="text-slate-400 text-sm">© 2025 PredictX. Mercado de previsões financeiras.</p>
+            <p className="text-slate-400 text-sm">© 2025 Predizer. Mercado de previsões financeiras.</p>
           </div>
         </div>
       </footer>
     </div>
   );
 }
+
+

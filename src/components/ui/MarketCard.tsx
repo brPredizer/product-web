@@ -7,40 +7,38 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 const categoryLabels: Record<string, string> = {
-  // slugs seeded by backend
-  'clima': 'Clima',
-  'criptomoedas': 'Criptomoedas',
-  'cultura': 'Cultura',
-  'economia': 'Economia',
-  'em-alta': 'Em Alta',
-  'empresas': 'Empresas',
-  'esportes': 'Esportes',
-  'financas': 'Finanças',
-  'mencoes': 'Menções',
-  'mundo': 'Mundo',
-  'novidades': 'Novidades',
-  'politica': 'Política',
-  'saude': 'Saúde',
-  'tecnologia-e-ciencia': 'Tecnologia e Ciência'
+  'CLIMA': 'Clima',
+  'CRIPTOMOEDAS': 'Criptomoedas',
+  'CULTURA': 'Cultura',
+  'ECONOMIA': 'Economia',
+  'EM-ALTA': 'Em Alta',
+  'EMPRESAS': 'Empresas',
+  'ESPORTES': 'Esportes',
+  'FINANCAS': 'Finanças',
+  'MENCOES': 'Menções',
+  'MUNDO': 'Mundo',
+  'NOVIDADES': 'Novidades',
+  'POLITICA': 'Política',
+  'SAUDE': 'Saúde',
+  'TECNOLOGIA-E-CIENCIA': 'Tecnologia e Ciência'
 }
 
 const categoryColors: Record<string, string> = {
-  clima: 'bg-teal-500/10 text-teal-600 border-teal-500/20',
-  criptomoedas: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
-  cultura: 'bg-pink-500/10 text-pink-600 border-pink-500/20',
-  economia: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  'em-alta': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  empresas: 'bg-sky-500/10 text-sky-600 border-sky-500/20',
-  esportes: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  'financas': 'bg-emerald-600/10 text-emerald-700 border-emerald-600/20',
-  'mencoes': 'bg-slate-200 text-slate-700 border-slate-200/20',
-  mundo: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
-  novidades: 'bg-violet-100 text-violet-700 border-violet-100/20',
-  'politica': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  'saude': 'bg-rose-100 text-rose-600 border-rose-100/20',
-  'tecnologia-e-ciencia': 'bg-violet-500/10 text-violet-600 border-violet-500/20'
+  CLIMA: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/25',
+  CRIPTOMOEDAS: 'bg-amber-500/10 text-amber-800 border-amber-500/25',
+  CULTURA: 'bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/25',
+  ECONOMIA: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25',
+  'EM-ALTA': 'bg-lime-400/15 text-lime-800 border-lime-500/25',
+  EMPRESAS: 'bg-sky-500/10 text-sky-700 border-sky-500/25',
+  ESPORTES: 'bg-orange-500/10 text-orange-700 border-orange-500/25',
+  FINANCAS: 'bg-rose-500/10 text-rose-700 border-rose-500/25',
+  MENCOES: 'bg-slate-200 text-slate-700 border-slate-300/60',
+  MUNDO: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/25',
+  NOVIDADES: 'bg-teal-500/10 text-teal-700 border-teal-500/25',
+  POLITICA: 'bg-blue-500/10 text-blue-700 border-blue-500/25',
+  SAUDE: 'bg-red-500/10 text-red-700 border-red-500/25',
+  'TECNOLOGIA-E-CIENCIA': 'bg-purple-500/10 text-purple-700 border-purple-500/25'
 }
-
 type Market = {
   id: string | number
   title: string
@@ -171,3 +169,4 @@ export default function MarketCard({ market, compact = false }: { market: Market
     </Link>
   )
 }
+

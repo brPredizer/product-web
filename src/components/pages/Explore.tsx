@@ -7,7 +7,7 @@ import { apiRequest } from "@/app/api/api";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { isAdminL1 } from "@/app/api/api";
+import { isAdminL2 } from "@/app/api/api";
 import { createPageUrl } from "@/routes";
 import {
   Search,
@@ -31,6 +31,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import MarketCard from "@/components/ui/MarketCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -71,6 +80,8 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
   const [sort, setSort] = useState<string>("-volume_total");
   const [viewMode, setViewMode] = useState<string>("grid");
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 12;
 
   const [probabilityFilters, setProbabilityFilters] = useState<string[]>([]);
   const [closingRange, setClosingRange] = useState<string>("any");
@@ -79,22 +90,22 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
   // Lista fixa de categorias (slugs do backend) com nomes em PT-BR
   // Ordem: Todas, Em Alta, Novidades, depois o resto conforme seed
   const categories = [
-    { id: "todas", name: "Todas" },
-    { id: "em-alta", name: "Em Alta" },
-    { id: "novidades", name: "Novidades" },
-    { id: "clima", name: "Clima" },
-    { id: "criptomoedas", name: "Criptomoedas" },
-    { id: "cultura", name: "Cultura" },
-    { id: "economia", name: "Economia" },
-    { id: "empresas", name: "Empresas" },
-    { id: "esportes", name: "Esportes" },
-    { id: "financas", name: "Finanças" },
-    { id: "mencoes", name: "Menções" },
-    { id: "mundo", name: "Mundo" },
-    { id: "politica", name: "Política" },
-    { id: "saude", name: "Saúde" },
-    { id: "tecnologia-e-ciencia", name: "Tecnologia e Ciência" },
-  ];
+  { id: "TODAS", name: "Todas" },
+  { id: "EM-ALTA", name: "Em Alta" },
+  { id: "NOVIDADES", name: "Novidades" },
+  { id: "CLIMA", name: "Clima" },
+  { id: "CRIPTOMOEDAS", name: "Criptomoedas" },
+  { id: "CULTURA", name: "Cultura" },
+  { id: "ECONOMIA", name: "Economia" },
+  { id: "EMPRESAS", name: "Empresas" },
+  { id: "ESPORTES", name: "Esportes" },
+  { id: "FINANCAS", name: "Finanças" },
+  { id: "MENCOES", name: "Menções" },
+  { id: "MUNDO", name: "Mundo" },
+  { id: "POLITICA", name: "Política" },
+  { id: "SAUDE", name: "Saúde" },
+  { id: "TECNOLOGIA-E-CIENCIA", name: "Tecnologia e Ciência" },
+];
 
   // Garante que usamos o slug correto do backend antes de enviar (lookup a partir da lista fixa)
   const getSlugForCategory = (value?: string) => {
@@ -124,7 +135,7 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
     const parts = categoryFromUrl.split(",").map((p) => p.trim()).filter(Boolean);
     const slugs = parts.map((p) => getSlugForCategory(p) ?? p);
 
-    const valid = slugs.filter((s) => categories.some((c) => c.id === s && c.id !== "todas"));
+    const valid = slugs.filter((s) => categories.some((c) => c.id === s && c.id !== "TODAS"));
     if (valid.length === 0) return;
 
     setSelectedCategories((prev) => {
@@ -139,8 +150,9 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
   const setCategoryAndUrl = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
 
-    if (id === "todas") {
+    if (id === "TODAS") {
       setSelectedCategories([]);
+      setPage(1);
       params.delete("category");
       router.replace(`${createPageUrl("Explore")}?${params.toString()}`, { scroll: false });
       return;
@@ -150,6 +162,7 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
     setSelectedCategories((prev) => {
       const exists = prev.includes(id);
       const next = exists ? prev.filter((v) => v !== id) : [...prev, id];
+      setPage(1);
 
       if (next.length === 0) {
         params.delete("category");
@@ -163,19 +176,30 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
     });
   };
 
-  const isCategoryActive = (id: string) => (id === "todas" ? selectedCategories.length === 0 : selectedCategories.includes(id));
+  const isCategoryActive = (id: string) => (id === "TODAS" ? selectedCategories.length === 0 : selectedCategories.includes(id));
 
   const toggleInArray = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
     setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
   };
 
   const categoryParam = selectedCategories.length > 0 ? selectedCategories : undefined;
+  const specialCategories = new Set(["NOVIDADES", "EM-ALTA"]);
 
-  const { data: markets = [], isLoading } = useQuery<any[]>({
-    queryKey: ["markets", "explore", sort, ...(selectedCategories || [])],
+  const { data: marketsResponse, isLoading } = useQuery<{
+    items: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>({
+    queryKey: ["markets", "explore", sort, page, ...(selectedCategories || [])],
     queryFn: async () => {
       try {
-        const qs = new URLSearchParams({ status: "open", limit: String(100), sort });
+        const qs = new URLSearchParams({
+          status: "open",
+          PageSize: String(pageSize),
+          Page: String(page),
+          sort,
+        });
         // map frontend sort tokens to backend-friendly values
         const mapSort = (s: string) => {
           if (!s) return undefined;
@@ -192,12 +216,15 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
         // Backend expects 'category' (lowercase). If multiple selected, send comma-separated slugs.
         if (selectedCategories && selectedCategories.length > 0) {
           const slugs = selectedCategories.map((c) => getSlugForCategory(c) ?? c);
-          qs.set("category", slugs.join(","));
+          const normal = slugs.filter((s) => !specialCategories.has(s));
+          if (normal.length > 0) {
+            qs.set("category", normal.join(","));
+          }
         }
 
         const params = qs.toString();
         const result = await apiRequest<any>(`/markets?${params}`);
-        if (!result) return [];
+        if (!result) return { items: [], total: 0, page, pageSize };
 
         // extract array from common shapes
         const rawList: any[] = Array.isArray(result)
@@ -206,19 +233,31 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
 
         // lazy-normalize here using central util to keep UI compatible
         const { normalizeMarket } = await import("@/lib/normalizeMarket");
-        const normalized = rawList.map((r) => normalizeMarket(r));
-        return normalized;
+        const normalized = rawList.map((r) => normalizeMarket(r)).filter(Boolean);
+        const total = Number(result.total ?? result.meta?.total ?? normalized.length ?? 0);
+        const resPage = Number(result.page ?? page);
+        const resPageSize = Number(result.pageSize ?? pageSize);
+        return { items: normalized, total, page: resPage, pageSize: resPageSize };
       } catch (err) {
-        return [];
+        return { items: [], total: 0, page, pageSize };
       }
     },
   });
+  const markets = marketsResponse?.items ?? [];
+  const totalMarkets = marketsResponse?.total ?? markets.length;
+  const totalPages = Math.max(1, Math.ceil(totalMarkets / pageSize));
 
   // debounce search input to avoid spamming backend on every keystroke
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+  useEffect(() => {
+    setPage(1);
+  }, [sort, probabilityFilters, closingRange, statusFilters, selectedCategories]);
 
   const { data: searchResults = [], isFetching: isSearching } = useQuery<any[]>({
     queryKey: ["markets", "search", debouncedSearch],
@@ -250,7 +289,26 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
           market.title?.toLowerCase().includes(search.toLowerCase()) ||
           market.description?.toLowerCase().includes(search.toLowerCase());
 
-        const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(market.category);
+        const isNew = (() => {
+          if (!market.created_date) return false;
+          const diffDays = (now - new Date(market.created_date).getTime()) / (1000 * 60 * 60 * 24);
+          return diffDays <= 7;
+        })();
+
+        const isTrending = (() => {
+          const vol24 = market.volume_24h || 0;
+          const vol7 = market.volume_7d_avg || 0;
+          if (!vol24 || !vol7) return false;
+          return vol24 >= vol7 * 1.2;
+        })();
+
+        const matchesCategory =
+          selectedCategories.length === 0 ||
+          selectedCategories.some((cat) => {
+            if (cat === "NOVIDADES") return isNew;
+            if (cat === "EM-ALTA") return isTrending;
+            return cat === market.category;
+          });
 
         const matchesProbability =
           probabilityFilters.length === 0 ||
@@ -267,19 +325,6 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
           const diffDays = (closing - now) / (1000 * 60 * 60 * 24);
           if (closingRange === "today") return diffDays <= 1;
           return diffDays <= Number(closingRange);
-        })();
-
-        const isNew = (() => {
-          if (!market.created_date) return false;
-          const diffDays = (now - new Date(market.created_date).getTime()) / (1000 * 60 * 60 * 24);
-          return diffDays <= 7;
-        })();
-
-        const isTrending = (() => {
-          const vol24 = market.volume_24h || 0;
-          const vol7 = market.volume_7d_avg || 0;
-          if (!vol24 || !vol7) return false;
-          return vol24 >= vol7 * 1.2;
         })();
 
         const matchesStatus =
@@ -326,13 +371,14 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
     setProbabilityFilters([]);
     setClosingRange("any");
     setStatusFilters([]);
+    setPage(1);
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("category");
     router.replace(`${createPageUrl("Explore")}?${params.toString()}`, { scroll: false });
   };
 
-  const showCreateAction = isAdminL1(user);
+  const showCreateAction = isAdminL2(user);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -343,7 +389,7 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">Explorar Mercados</h1>
-                <p className="text-slate-500 mt-1">{filteredMarkets.length} mercados disponíveis</p>
+                <p className="text-slate-500 mt-1">{debouncedSearch ? filteredMarkets.length : totalMarkets} mercados disponíveis</p>
               </div>
 
               <div className="hidden sm:flex items-center gap-3">
@@ -621,7 +667,76 @@ export default function Explore({ user }: { user?: any }): JSX.Element {
             </Button>
           </div>
         )}
+
+        {!debouncedSearch && totalPages > 1 && (
+          <div className="mt-10">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage((prev) => Math.max(1, prev - 1));
+                    }}
+                    className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+
+                {(() => {
+                  const pages: (number | "ellipsis")[] = [];
+                  if (totalPages <= 7) {
+                    for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+                  } else {
+                    const start = Math.max(2, page - 1);
+                    const end = Math.min(totalPages - 1, page + 1);
+                    pages.push(1);
+                    if (start > 2) pages.push("ellipsis");
+                    for (let i = start; i <= end; i += 1) pages.push(i);
+                    if (end < totalPages - 1) pages.push("ellipsis");
+                    pages.push(totalPages);
+                  }
+
+                  return pages.map((p, idx) =>
+                    p === "ellipsis" ? (
+                      <PaginationItem key={`ellipsis-${idx}`}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    ) : (
+                      <PaginationItem key={p}>
+                        <PaginationLink
+                          href="#"
+                          isActive={page === p}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage(p);
+                          }}
+                        >
+                          {p}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  );
+                })()}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage((prev) => Math.min(totalPages, prev + 1));
+                    }}
+                    className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+
+

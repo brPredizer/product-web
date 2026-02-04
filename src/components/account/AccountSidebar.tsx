@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from "react";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User as UserIcon, Home, Shield, CreditCard } from "lucide-react";
 
@@ -27,7 +27,7 @@ export default function AccountSidebar(): JSX.Element {
           <TabsTrigger value="security" className="w-full justify-start rounded-xl px-3 py-2.5 hover:bg-slate-50 data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:hover:bg-slate-900">
             <span className="flex items-center gap-2">
               <Shield className="w-4 h-4" />
-              Segurança
+              Privacidade e Segurança
             </span>
           </TabsTrigger>
           <TabsTrigger value="payments" className="w-full justify-start rounded-xl px-3 py-2.5 hover:bg-slate-50 data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:hover:bg-slate-900">
@@ -41,3 +41,4 @@ export default function AccountSidebar(): JSX.Element {
     </aside>
   );
 }
+

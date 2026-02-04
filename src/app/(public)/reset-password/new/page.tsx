@@ -164,11 +164,11 @@ export default function ResetPasswordNewPage(): JSX.Element {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-10">
       <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
       <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
 
-      <div className="relative mx-auto max-w-xl px-4 py-10 sm:py-12">
+      <div className="relative mx-auto max-w-xl w-full">
         <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
           <div className="p-8">
             <div className="text-center">
@@ -186,7 +186,7 @@ export default function ResetPasswordNewPage(): JSX.Element {
 
                 <div className="mt-5">
                   <Link href="/sign-in">
-                    <Button className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base">Ir para login</Button>
+                    <Button className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-base">Ir para login</Button>
                   </Link>
                 </div>
               </div>

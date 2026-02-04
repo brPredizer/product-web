@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "@/app/api/auth";
@@ -14,12 +14,13 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { MapPin } from "lucide-react";
+import { User as UserIcon, Home as HomeIcon, Shield, CreditCard } from "lucide-react";
 import AccountSidebar from "@/components/account/AccountSidebar";
 import AccountPersonalForm from "@/components/account/AccountPersonalForm";
 import AccountAddressForm from "@/components/account/AccountAddressForm";
 import AccountSecurityForm from "@/components/account/AccountSecurityForm";
 import AccountPaymentsForm from "@/components/account/AccountPaymentsForm";
+import AccountPrivacyPanel from "@/components/account/AccountPrivacyPanel";
 import { fetchViaCep } from "@/utils/viacep";
 
 type User = any;
@@ -39,6 +40,7 @@ const authClientAny = authClient as any;
 const paymentsClientAny = paymentsClient as any;
 const AccountPersonalFormC = (AccountPersonalForm as unknown) as React.ComponentType<any>;
 const AccountAddressFormC = (AccountAddressForm as unknown) as React.ComponentType<any>;
+const AccountPrivacyPanelC = (AccountPrivacyPanel as unknown) as React.ComponentType<any>;
 
 export default function Account({ user, refreshUser }: { user?: User; refreshUser?: () => void }) {
     const router = useRouter();
@@ -292,7 +294,7 @@ export default function Account({ user, refreshUser }: { user?: User; refreshUse
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-slate-50 pb-24 md:pb-10">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
                 <div className="flex items-start justify-between gap-6 mb-4">
                     <div>
@@ -301,6 +303,46 @@ export default function Account({ user, refreshUser }: { user?: User; refreshUse
                     </div>
                 </div>
                 <TabsC defaultValue="personal">
+                    <div className="md:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-slate-200">
+                        <TabsListC className="grid grid-cols-4 h-16 w-full bg-white px-2">
+                            <TabsTriggerC
+                                value="personal"
+                                className="flex flex-col items-center justify-center gap-0.5 text-xs text-slate-500 transition-all rounded-md py-2 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                <UserIcon className="w-5 h-5 transition-transform duration-150 data-[state=active]:-translate-y-0.5 data-[state=active]:text-emerald-600" />
+                                <span className="text-[11px] leading-3 font-medium transition-all duration-150 data-[state=active]:opacity-100 data-[state=inactive]:opacity-60">
+                                    Dados
+                                </span>
+                            </TabsTriggerC>
+                            <TabsTriggerC
+                                value="address"
+                                className="flex flex-col items-center justify-center gap-0.5 text-xs text-slate-500 transition-all rounded-md py-2 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                <HomeIcon className="w-5 h-5 transition-transform duration-150 data-[state=active]:-translate-y-0.5 data-[state=active]:text-emerald-600" />
+                                <span className="text-[11px] leading-3 font-medium transition-all duration-150 data-[state=active]:opacity-100 data-[state=inactive]:opacity-60">
+                                    Endereço
+                                </span>
+                            </TabsTriggerC>
+                            <TabsTriggerC
+                                value="security"
+                                className="flex flex-col items-center justify-center gap-0.5 text-xs text-slate-500 transition-all rounded-md py-2 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                <Shield className="w-5 h-5 transition-transform duration-150 data-[state=active]:-translate-y-0.5 data-[state=active]:text-emerald-600" />
+                                <span className="text-[11px] leading-3 font-medium transition-all duration-150 data-[state=active]:opacity-100 data-[state=inactive]:opacity-60">
+                                   Priv. e Seg.
+                                </span>
+                            </TabsTriggerC>
+                            <TabsTriggerC
+                                value="payments"
+                                className="flex flex-col items-center justify-center gap-0.5 text-xs text-slate-500 transition-all rounded-md py-2 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                            >
+                                <CreditCard className="w-5 h-5 transition-transform duration-150 data-[state=active]:-translate-y-0.5 data-[state=active]:text-emerald-600" />
+                                <span className="text-[11px] leading-3 font-medium transition-all duration-150 data-[state=active]:opacity-100 data-[state=inactive]:opacity-60">
+                                    Pag.
+                                </span>
+                            </TabsTriggerC>
+                        </TabsListC>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 items-start">
                         <AccountSidebar />
                         <main className="min-w-0">
@@ -340,6 +382,7 @@ export default function Account({ user, refreshUser }: { user?: User; refreshUse
                             </TabsContentC>
                             <TabsContentC value="security" className="space-y-4">
                                 <AccountSecurityForm />
+                                <AccountPrivacyPanelC userId={user?.id || user?.userId || user?.sub} />
                             </TabsContentC>
                             <TabsContentC value="payments" className="space-y-6">
                                 <AccountPaymentsForm
@@ -356,3 +399,6 @@ export default function Account({ user, refreshUser }: { user?: User; refreshUse
         </div>
     );
 }
+
+
+

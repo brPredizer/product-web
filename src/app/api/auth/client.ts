@@ -48,7 +48,7 @@ const STORAGE_KEYS = {
 
 const emitAuthEvent = () => {
   if (!isBrowser) return;
-  window.dispatchEvent(new CustomEvent('predictx:auth-changed'));
+  window.dispatchEvent(new CustomEvent('predizer:auth-changed'));
 };
 
 const readStorage = (key: string): string | null => {
@@ -546,8 +546,17 @@ const changePassword = async (payload: {
   return { success: true };
 };
 
-const confirmEmail = async ({ userId, code }: { userId: string; code: string }) => {
-  const query = buildQueryString({ userId, code });
+type ConfirmEmailParams = { userId?: string; code?: string; shortCode?: string };
+
+const confirmEmail = async ({ userId, code, shortCode }: ConfirmEmailParams) => {
+  const hasShortCode = Boolean(shortCode);
+  const hasUserAndCode = Boolean(userId && code);
+
+  if (!hasShortCode && !hasUserAndCode) {
+    throw new Error('Missing confirmation parameters');
+  }
+
+  const query = buildQueryString(hasShortCode ? { shortCode } : { userId, code });
   const path = query ? `/auth/confirmEmail?${query}` : '/auth/confirmEmail';
   return request(path, { method: 'POST' });
 };

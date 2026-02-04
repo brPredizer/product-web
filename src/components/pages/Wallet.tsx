@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { walletClient } from "@/app/api/wallet";
 import { paymentsClient } from "@/app/api/payments";
@@ -28,7 +29,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Wallet,
@@ -38,15 +38,20 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  QrCode,
-  Copy,
+  Loader2,
+  Download,
+  X,
 } from "lucide-react";
 import StatsCard from "@/components/ui/StatsCard";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DialogClose } from "@radix-ui/react-dialog";
 
+/**
+ * Taxas (sua UI)
+ */
 const DEPOSIT_FEE = 0.025; // 2.5%
 const WITHDRAWAL_FEE = 0.075; // 7.5%
 
@@ -56,6 +61,12 @@ interface WalletProps {
   user?: any;
   refreshUser?: () => void;
 }
+
+/**
+ * =============================
+ * HELPERS
+ * =============================
+ */
 
 // Normaliza respostas de PIX do backend, aceitando PascalCase, snake_case ou camelCase
 const normalizePixResponse = (pix: Record<string, any> | null) => {
@@ -88,29 +99,6 @@ const normalizePixResponse = (pix: Record<string, any> | null) => {
 };
 
 const onlyDigits = (value: unknown) => String(value || "").replace(/\D/g, "");
-
-const formatCpf = (digits: string) => {
-  const d = digits.slice(0, 11);
-  return d
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-};
-
-const formatCnpj = (digits: string) => {
-  const d = digits.slice(0, 14);
-  return d
-    .replace(/(\d{2})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1/$2")
-    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
-};
-
-const formatDocument = (value: string) => {
-  const digits = onlyDigits(value);
-  if (digits.length > 11) return formatCnpj(digits);
-  return formatCpf(digits);
-};
 
 const inferDocumentType = (digits: string) => (digits.length > 11 ? "CNPJ" : "CPF");
 
@@ -179,19 +167,57 @@ function toNumberSafe(v: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function formatSecs(s: number | null) {
-  if (s == null) return "--:--";
-  const mm = Math.floor(s / 60).toString().padStart(2, "0");
-  const ss = Math.floor(s % 60).toString().padStart(2, "0");
-  return `${mm}:${ss}`;
-}
-
 function formatExpiresAtLabel(expiresAt: any) {
-  if (!expiresAt) return "—";
+  if (!expiresAt) return "-";
   const d = new Date(expiresAt);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return format(d, "dd/MM, HH:mm", { locale: ptBR });
 }
+
+const formatCurrencyValue = (value: number, currency: string) => {
+  const curr = String(currency || "BRL").toUpperCase();
+  try {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: curr }).format(
+      Number(value) || 0
+    );
+  } catch {
+    return `${curr} ${(Number(value) || 0).toFixed(2)}`;
+  }
+};
+
+const RECEIPT_TYPE_LABELS: Record<string, string> = {
+  deposit: "Depósito",
+  buy: "Compra",
+  withdraw_request: "Solicitação de saque",
+  withdraw_paid: "Saque pago",
+  withdrawal: "Saque",
+  fee: "Taxa",
+  payout: "Pagamento",
+};
+
+const normalizeReceiptType = (rawType: string, amount: number) => {
+  const t = String(rawType || "").toLowerCase();
+  if (t === "withdraw_request" || t === "withdraw_paid") return "withdrawal";
+  if (t === "buy" || t === "deposit" || t === "withdrawal" || t === "fee" || t === "payout") return t;
+  if (t === "sell") return "sell";
+  if (t === "order") return "buy";
+  if (amount > 0) return "deposit";
+  if (amount < 0) return "withdrawal";
+  return "other";
+};
+
+const formatDateTimeFull = (value: any) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "-";
+  return format(d, "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
+};
+
+const shortReceiptId = (value: string | null | undefined) => {
+  const v = String(value || "").trim();
+  if (!v) return "-";
+  return v.slice(0, 8);
+};
 
 const isFinalStatus = (s: any) => {
   const v = String(s || "").toLowerCase();
@@ -221,195 +247,78 @@ const mapStatus = (s: any) => {
   }
 };
 
-// Scroll invisível (mantém scroll, mas sem a barra feia)
-const InvisibleScrollArea = React.forwardRef<
-  HTMLDivElement,
-  { className?: string; children: React.ReactNode }
->(({ className, children }, ref) => {
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        "overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-});
-InvisibleScrollArea.displayName = "InvisibleScrollArea";
-
-function mapLedgerEntries(entries: any[] = []) {
-  const typeMap: any = {
-    DEPOSIT: "deposit",
-    DEPOSIT_GATEWAY: "deposit",
-    WITHDRAWAL: "withdrawal",
-    WITHDRAWAL_REQUEST: "withdrawal",
-    WITHDRAWAL_APPROVED: "withdrawal",
-    WITHDRAWAL_REJECTED: "withdrawal",
-    FEE: "fee",
-    ORDER: "buy",
-    BUY: "buy",
-    BET_BUY: "buy",
-    SELL: "sell",
-    PAYOUT: "payout",
-  };
-
-  const statusMap: any = {
-    PENDING: { key: "pending", label: "Pendente", tone: "bg-amber-100 text-amber-700" },
-    REQUESTED: { key: "pending", label: "Pendente", tone: "bg-amber-100 text-amber-700" },
-    APPROVED: { key: "approved", label: "Aprovado", tone: "bg-emerald-100 text-emerald-700" },
-    REJECTED: { key: "rejected", label: "Rejeitado", tone: "bg-rose-100 text-rose-700" },
-    CANCELLED: { key: "cancelled", label: "Cancelado", tone: "bg-slate-100 text-slate-700" },
-    FAILED: { key: "failed", label: "Falhou", tone: "bg-rose-100 text-rose-700" },
-    COMPLETED: { key: "completed", label: "Concluído", tone: "bg-emerald-100 text-emerald-700" },
-  };
-
-  const descriptionMap: any = {
-    withdrawal: "Saque",
-    deposit: "Depósito",
-    fee: "Taxa",
-    market: "Mercado",
-    order: "Compra",
-    market_trade: "Compra",
-    paymentintent: "Depósito",
-    payment: "Pagamento",
-    payout: "Pagamento",
-  };
-
-  const typeFallbackMap: any = {
-    withdrawal: "withdrawal",
-    deposit: "deposit",
-    fee: "fee",
-    order: "buy",
-    // removed bet fallback - BET_BUY maps to buy now
-    payment: "payout",
-    payout: "payout",
-    paymentintent: "deposit",
-  };
-
-  const getDescriptionTokens = (value: any) => {
-    const normalized = String(value).trim().toLowerCase();
-    return [
-      normalized,
-      normalized.replace(/[^a-z0-9]+/g, ""),
-      normalized.replace(/[^a-z0-9]+/g, "_"),
-    ];
-  };
-
-  const translateDescription = (value: any) => {
-    if (!value) return value;
-    const tokens = getDescriptionTokens(value);
-    for (const token of tokens) {
-      if (descriptionMap[token]) return descriptionMap[token];
-    }
-    return value;
-  };
-
-  const resolveTypeFromText = (value: any) => {
-    if (!value) return null;
-    const tokens = getDescriptionTokens(value);
-    for (const token of tokens) {
-      if (typeFallbackMap[token]) return typeFallbackMap[token];
-    }
-    return null;
-  };
-
-  return entries.map((entry: any, index: number) => {
-    const rawType = String(entry?.type || "");
-    let normalizedType =
-      typeMap[rawType] || typeMap[rawType.toUpperCase()] || "other";
-
-    const amount = Number(entry?.amount ?? 0);
-    const feeNum = Number(entry?.fee ?? 0);
-
-    const rawStatus = String(entry?.status || "");
-    const normalizedStatus =
-      statusMap[rawStatus] || statusMap[rawStatus.toUpperCase()] || null;
-
-    const rawDescription =
-      entry?.description || entry?.referenceType || entry?.type || "Movimento";
-
-    // If backend uses referenceType market_trade or type BET_BUY, prefer 'bet' kind
-    const refType = String(entry?.referenceType || "").toLowerCase();
-    if (refType.includes("market_trade") || String(entry?.type || "").toUpperCase() === "BET_BUY") {
-      normalizedType = "buy";
-    }
-
-    if (normalizedType === "other") {
-      normalizedType = resolveTypeFromText(rawDescription) || normalizedType;
-    }
-
-    // For 'buy' entries, the ledger `amount` usually already includes the fee (negative).
-    // Display `net_amount` to the user as the spent amount excluding platform fee.
-    const computedNet =
-      normalizedType === "buy" ? Math.max(0, Math.abs(amount) - feeNum) : Math.abs(amount);
-
-    return {
-      id: entry?.id || entry?.referenceId || `${rawType || "entry"}-${index}`,
-      type: normalizedType,
-      amount,
-      net_amount: computedNet,
-      fee: feeNum,
-      status: normalizedStatus?.key || entry?.status || null,
-      statusLabel: normalizedStatus?.label || null,
-      statusTone: normalizedStatus?.tone || null,
-      description: translateDescription(rawDescription) || (refType.includes("market_trade") ? "Compra" : rawDescription),
-      createdAt: entry?.createdAt ?? entry?.created_date ?? null,
-    };
-  });
-}
-
-function TransactionRow({ transaction }: { transaction: any }) {
+function TransactionRow({
+  transaction,
+  onClick,
+}: {
+  transaction: any;
+  onClick?: (id: string) => void;
+}) {
   const typeConfig: any = {
     deposit: {
       icon: ArrowDownCircle,
       color: "text-emerald-600 bg-emerald-100",
       label: "Depósito",
-      sign: "+",
     },
     withdrawal: {
       icon: ArrowUpCircle,
       color: "text-rose-600 bg-rose-100",
       label: "Saque",
-      sign: "-",
+    },
+    withdraw_request: {
+      icon: ArrowUpCircle,
+      color: "text-amber-600 bg-amber-100",
+      label: "Solicitação de saque",
+    },
+    withdraw_paid: {
+      icon: CheckCircle2,
+      color: "text-emerald-600 bg-emerald-100",
+      label: "Saque pago",
     },
     fee: {
       icon: AlertCircle,
       color: "text-amber-600 bg-amber-100",
       label: "Taxa",
-      sign: "-",
     },
     buy: {
       icon: CreditCard,
       color: "text-blue-600 bg-blue-100",
       label: "Compra",
-      sign: "-",
     },
-    
     sell: {
       icon: CreditCard,
       color: "text-purple-600 bg-purple-100",
       label: "Venda",
-      sign: "+",
     },
     payout: {
       icon: CheckCircle2,
       color: "text-emerald-600 bg-emerald-100",
       label: "Pagamento",
-      sign: "+",
     },
     other: {
       icon: AlertCircle,
       color: "text-slate-600 bg-slate-100",
       label: "Movimento",
-      sign: "",
     },
   };
 
   const config = typeConfig[transaction.type] || typeConfig.other;
   const Icon = config.icon;
+
+  const description = transaction.description || "Transação";
+  const marketLabel = transaction.marketTitle || null;
+  const marketSlug = transaction.marketSlug || null;
+  const paymentLabel = transaction.paymentMethod
+    ? `Método: ${String(transaction.paymentMethod).toUpperCase()}`
+    : null;
+  const externalPaymentId = transaction.providerPaymentIdText || transaction.providerPaymentId || null;
+  const currencyLabel = transaction.currency || "BRL";
+  const amountNumber = Number(transaction.amount ?? transaction.net_amount ?? 0) || 0;
+  const amountValue = Math.abs(amountNumber);
+  const sign = amountNumber === 0 ? "" : amountNumber > 0 ? "+" : "-";
+  const amountFormatted = `${sign}${formatCurrencyValue(amountValue, currencyLabel)}`;
+  const amountTone =
+    sign === "+" ? "text-emerald-600" : sign === "-" ? "text-rose-600" : "text-slate-600";
 
   const createdAt = transaction.createdAt;
   const createdLabel = createdAt
@@ -417,32 +326,34 @@ function TransactionRow({ transaction }: { transaction: any }) {
     : "-";
 
   return (
-    <div className="p-4 sm:p-6 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+    <div
+      className={cn(
+        "p-4 sm:p-6 flex items-center gap-4 hover:bg-slate-50 transition-colors",
+        onClick && "cursor-pointer"
+      )}
+      onClick={onClick ? () => onClick(transaction.id) : undefined}
+    >
       <div className={cn("p-2.5 rounded-full", config.color)}>
         <Icon className="w-5 h-5" />
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-slate-900">{config.label}</p>
-        <p className="text-sm text-slate-500 truncate">
-          {transaction.description || transaction.market_title || "-"}
-        </p>
+        <p className="font-medium text-slate-900">{transaction.label || config.label}</p>
+        <p className="text-sm text-slate-500 truncate">{description}</p>
+
+        {marketLabel ? (
+          <p className="text-xs text-emerald-700 truncate">
+            {marketSlug ? `${marketLabel} (${marketSlug})` : marketLabel}
+          </p>
+        ) : null}
+
         <p className="text-xs text-slate-400 mt-1">{createdLabel}</p>
       </div>
 
       <div className="text-right">
-        <p
-          className={cn(
-            "font-semibold",
-            config.sign === "+" ? "text-emerald-600" : "text-slate-900"
-          )}
-        >
-          {config.sign}R$ {(transaction.net_amount || transaction.amount || 0).toFixed(2)}
+        <p className={cn("font-semibold", amountTone)}>
+          {amountFormatted}
         </p>
-
-        {transaction.fee > 0 && transaction.type !== 'buy' && (
-          <p className="text-xs text-slate-500">Taxa: R$ {transaction.fee.toFixed(2)}</p>
-        )}
 
         {transaction.statusLabel && (
           <Badge className={`${transaction.statusTone || "bg-slate-100 text-slate-700"} mt-1`}>
@@ -454,6 +365,278 @@ function TransactionRow({ transaction }: { transaction: any }) {
   );
 }
 
+/**
+ * =============================
+ * MAPS
+ * =============================
+ */
+function mapReceipts(items: any[] = []) {
+  return items.map((item: any, index: number) => {
+    const amount = Number(item?.amount ?? 0) || 0;
+    const normalizedType = normalizeReceiptType(item?.type, amount);
+    const label =
+      RECEIPT_TYPE_LABELS[String(item?.type || "").toLowerCase()] ||
+      RECEIPT_TYPE_LABELS[normalizedType] ||
+      "Movimento";
+
+    return {
+      id: item?.id || `receipt-${index}`,
+      type: normalizedType,
+      rawType: item?.type ?? null,
+      label,
+      amount,
+      currency: item?.currency || "BRL",
+      description: item?.description || label,
+      provider: item?.provider || null,
+      paymentMethod: item?.payment?.method || null,
+      providerPaymentId: item?.payment?.externalPaymentId || item?.providerPaymentId || null,
+      createdAt: item?.createdAt ?? null,
+      marketTitle: item?.market?.title ?? null,
+      marketSlug: item?.market?.slug ?? null,
+    };
+  });
+}
+
+function ReceiptModal({
+  open,
+  receiptId,
+  onOpenChange,
+}: {
+  open: boolean;
+  receiptId: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["wallet-receipt", receiptId],
+    enabled: open && Boolean(receiptId),
+    queryFn: async () => {
+      return await (walletClient as any).getReceipt?.(receiptId as string);
+    },
+  });
+
+  const receipt = data as any;
+  const amountNumber = Number(receipt?.amount ?? 0) || 0;
+  const sign = amountNumber === 0 ? "" : amountNumber > 0 ? "+" : "-";
+  const amountLabel = `${sign}${formatCurrencyValue(Math.abs(amountNumber), receipt?.currency || "BRL")}`;
+  const amountTone =
+    sign === "+" ? "text-emerald-600" : sign === "-" ? "text-rose-600" : "text-slate-600";
+  const typeLabel = receipt
+    ? RECEIPT_TYPE_LABELS[String(receipt.type || "").toLowerCase()] ||
+      RECEIPT_TYPE_LABELS[normalizeReceiptType(receipt.type, amountNumber)] ||
+      "Recibo"
+    : "Recibo";
+  const createdLabel = formatDateTimeFull(receipt?.createdAt);
+  const market = receipt?.market || null;
+  const payment = receipt?.payment || null;
+  const isExpired = payment?.expiresAt ? new Date(payment.expiresAt).getTime() < Date.now() : false;
+  const qrImage = payment?.qrCodeBase64 ? `data:image/png;base64,${payment.qrCodeBase64}` : null;
+
+  const handlePrint = () => {
+    if (typeof window === "undefined") return;
+    window.print();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="receipt-dialog max-w-2xl max-h-[95vh] print:w-full print:max-w-full print:max-h-none print:overflow-visible print:border-0 print:shadow-none [&>button.absolute]:hidden p-4 sm:p-5 print:p-0">
+        <style>{`
+          @media print {
+            @page { size: A4 portrait; margin: 12mm; }
+
+            html, body { height: auto !important; }
+            body { margin: 0 !important; background: #fff !important; }
+
+            /* Esconde tudo (sem remover do DOM/portal) */
+            body * { visibility: hidden !important; }
+
+            /* Some com o overlay do Radix */
+            [data-radix-dialog-overlay] { display: none !important; }
+
+            /* Dialog não pode ser fixed/translate no print */
+            .receipt-dialog {
+              position: static !important;
+              inset: auto !important;
+              transform: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              max-height: none !important;
+              overflow: visible !important;
+              border: 0 !important;
+              box-shadow: none !important;
+              background: transparent !important;
+            }
+
+            /* Mostra só o recibo */
+            .receipt-print, .receipt-print * { visibility: visible !important; }
+
+            /* E fixa ele no topo da página (evita página em branco) */
+            .receipt-print {
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              width: 100% !important;
+              max-width: 720px !important;
+              margin: 0 auto !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+          }
+        `}</style>
+        <div className="absolute top-3 right-3 flex items-center gap-2 print:hidden">
+          <Button
+            onClick={handlePrint}
+            variant="ghost"
+            size="sm"
+            className="text-slate-600 hover:text-slate-900 gap-2"
+            aria-label="Baixar comprovante"
+          >
+            <Download className="w-4 h-4" />
+            <span className="text-xs">Baixar comprovante</span>
+          </Button>
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-slate-600 hover:text-slate-900"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </DialogClose>
+        </div>
+        <DialogHeader>
+          <DialogTitle>Recibo</DialogTitle>
+          <DialogDescription>Documento gerado eletronicamente.</DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[92vh] overflow-y-auto space-y-4 print:max-h-none print:space-y-3 print:overflow-visible">
+          {isLoading ? (
+            <div className="mx-auto w-full max-w-[420px] p-6 space-y-3">
+              <div className="h-6 w-32 bg-slate-200 rounded animate-pulse" />
+              <div className="h-10 w-full bg-slate-200 rounded animate-pulse" />
+              <div className="h-24 w-full bg-slate-200 rounded animate-pulse" />
+            </div>
+          ) : error ? (
+            <div className="text-sm text-rose-600">Falha ao carregar recibo.</div>
+          ) : !receipt ? (
+            <div className="text-sm text-slate-600">Recibo não encontrado.</div>
+          ) : (
+            <div
+              className="receipt-print mx-auto w-full max-w-[520px] bg-white border border-slate-200 rounded-2xl p-4 shadow-sm print:shadow-none print:border-slate-300 print:max-w-full"
+              style={{ breakInside: "avoid", pageBreakInside: "avoid", pageBreakBefore: "avoid", pageBreakAfter: "avoid" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Recibo</p>
+                  <p className="text-lg font-semibold text-slate-900">{typeLabel}</p>
+                </div>
+                <div className="text-right text-xs text-slate-500">
+                  <p>ID: {shortReceiptId(receipt.id)}</p>
+                  <p>{createdLabel}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <p className="text-sm text-slate-500">Descrição</p>
+                <p className="text-base font-semibold text-slate-900 leading-snug">
+                  {receipt.description || "—"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between py-3 border-y border-slate-200">
+                <span className="text-sm text-slate-600">Valor</span>
+                <span className={`text-xl font-bold ${amountTone}`}>{amountLabel}</span>
+              </div>
+
+              {market ? (
+                <div className="mt-4 rounded-lg border border-slate-200 p-3 bg-slate-50">
+                  <p className="text-xs text-slate-500">Mercado</p>
+                  <p className="text-sm font-semibold text-slate-900">{market.title}</p>
+                  {market.slug ? (
+                    <p className="text-xs text-emerald-700">{market.slug}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {receipt.contracts != null || receipt.unitPrice != null ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  {receipt.contracts != null ? (
+                    <div>
+                      <p className="text-xs text-slate-500">Contratos</p>
+                      <p className="font-medium text-slate-900">{receipt.contracts}</p>
+                    </div>
+                  ) : null}
+                  {receipt.unitPrice != null ? (
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">Preço unitário</p>
+                      <p className="font-medium text-slate-900">
+                        {formatCurrencyValue(receipt.unitPrice, receipt.currency || "BRL")}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {payment ? (
+                <div className="mt-4 rounded-lg border border-slate-200 p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Pagamento</p>
+                      <p className="text-xs text-slate-500">
+                        Método {payment.method ? String(payment.method).toUpperCase() : "-"}
+                      </p>
+                    </div>
+                    {payment.checkoutUrl && !isExpired ? (
+                      <Button asChild size="sm" variant="outline" className="print:hidden">
+                        <a href={payment.checkoutUrl} target="_blank" rel="noreferrer">
+                          Pagar
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  {payment.externalPaymentId ? (
+                    <p className="text-xs text-slate-600">
+                      ID do pagamento: <span className="font-medium">{payment.externalPaymentId}</span>
+                    </p>
+                  ) : null}
+
+                  {qrImage ? (
+                    <div className="mt-3 text-center space-y-1">
+                      <img
+                        src={qrImage}
+                        alt="QR Code"
+                        className={cn("mx-auto w-48 h-48 object-contain border rounded-lg", isExpired && "opacity-60")}
+                      />
+                      <p className="text-xs text-slate-500">
+                        {isExpired ? "Expirado" : "Escaneie para pagar"}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="mt-6 text-xs text-slate-500 border-t border-dashed border-slate-200 pt-3">
+                <p>Documento gerado eletronicamente.</p>
+                <p>Ref.: {shortReceiptId(receipt.id)}</p>
+                <p>Emitido em: {createdLabel}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+/**
+ * =============================
+ * PAGE
+ * =============================
+ */
 export default function WalletView({ user, refreshUser }: WalletProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -462,6 +645,8 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
   const [depositSetupOpen, setDepositSetupOpen] = useState(false);
   const [pixOpen, setPixOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
   // depósito
   const [depositAmountStr, setDepositAmountStr] = useState("");
@@ -481,7 +666,6 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
 
   // evita chamadas concorrentes ao endpoint de status
   const statusRequestRef = useRef<boolean>(false);
-
   // toast anti-spam
   const finalToastRef = useRef<string | null>(null);
 
@@ -511,6 +695,15 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     queryFn: async () => {
       const res = await (walletClient as any).getLedger?.();
       return res ?? { entries: [], nextCursor: null };
+    },
+  });
+
+  const receiptsQuery = useQuery({
+    queryKey: ["wallet-receipts", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const res = await (walletClient as any).getReceipts?.();
+      return res ?? { items: [], nextCursor: null };
     },
   });
 
@@ -554,10 +747,18 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
   }, [ledgerQuery.data, user?.total_wagered]);
 
   const transactions = useMemo(() => {
-    const raw = ledgerQuery.data as any;
-    const entries = Array.isArray(raw) ? raw : raw?.entries ?? raw?.data ?? [];
-    return mapLedgerEntries(entries);
-  }, [ledgerQuery.data]);
+    const rawReceipts = receiptsQuery.data as any;
+    const items = Array.isArray(rawReceipts)
+      ? rawReceipts
+      : rawReceipts?.items ?? rawReceipts?.data?.items ?? rawReceipts?.data ?? [];
+    return mapReceipts(items);
+  }, [receiptsQuery.data]);
+
+  const handleOpenReceipt = (id: string | null) => {
+    if (!id) return;
+    setSelectedReceiptId(id);
+    setReceiptModalOpen(true);
+  };
 
   const cardMethods = useMemo(() => {
     const raw = paymentMethodsQuery.data as any;
@@ -573,21 +774,15 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
   );
 
   useEffect(() => {
-    if (!payerEmail && user?.email) {
-      setPayerEmail(user.email);
-    }
+    if (!payerEmail && user?.email) setPayerEmail(user.email);
     const doc = user?.cpf || user?.document || "";
-    if (!payerDocument && doc) {
-      setPayerDocument(onlyDigits(doc));
-    }
+    if (!payerDocument && doc) setPayerDocument(onlyDigits(doc));
   }, [user, payerEmail, payerDocument]);
 
   useEffect(() => {
     if (!selectedCardId && usableCardMethods.length > 0) {
       const firstId = resolveMpCardId(usableCardMethods[0]);
-      if (firstId) {
-        setSelectedCardId(String(firstId));
-      }
+      if (firstId) setSelectedCardId(String(firstId));
     }
   }, [usableCardMethods, selectedCardId]);
 
@@ -597,15 +792,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     }
   }, [depositMethod, usableCardMethods.length]);
 
-  const selectedCard = useMemo(
-    () =>
-      usableCardMethods.find(
-        (method: any) => String(resolveMpCardId(method) || "") === String(selectedCardId || "")
-      ),
-    [usableCardMethods, selectedCardId]
-  );
-
-  const isLoading = balancesQuery.isLoading || ledgerQuery.isLoading;
+  const isLoading = balancesQuery.isLoading || ledgerQuery.isLoading || receiptsQuery.isLoading;
 
   const withdrawMutation = useMutation({
     mutationFn: async (amount: number) => {
@@ -635,8 +822,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
         return;
       }
 
-      // ✅ guarda também o amount do PIX pra UI ficar consistente
-      setPixData({ ...normalized, intent: data?.intent });
+      setPixData({ ...normalized, intent: data?.intent, amount: depositAmount });
       toast.success("PIX gerado.");
 
       setDepositSetupOpen(false);
@@ -650,30 +836,22 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
   const cardOrderMutation = useMutation({
     mutationFn: async () => {
       const amount = depositAmount;
-      if (amount < 0.01) {
-        throw new Error("Informe um valor valido");
-      }
+      if (amount < 0.01) throw new Error("Informe um valor válido");
 
       const selected = usableCardMethods.find(
         (method: any) => String(resolveMpCardId(method) || "") === String(selectedCardId || "")
       );
-      if (!selected) {
-        throw new Error("Selecione um cartao salvo");
-      }
+      if (!selected) throw new Error("Selecione um cartão salvo");
 
       const cardId = resolveMpCardId(selected);
-      if (!cardId) {
-        throw new Error("Cartao sem mpCardId");
-      }
+      if (!cardId) throw new Error("Cartão sem mpCardId");
 
       const cvvDigits = onlyDigits(cardCvv);
-      if (cvvDigits.length < 3) {
-        throw new Error("CVV invalido");
-      }
+      if (cvvDigits.length < 3) throw new Error("CVV inválido");
 
       const mp = getMercadoPagoInstance();
       if (!mp || typeof (mp as any).createCardToken !== "function") {
-        throw new Error("SDK do Mercado Pago nao carregado");
+        throw new Error("SDK do Mercado Pago não carregado");
       }
 
       const tokenResp = await (mp as any).createCardToken({
@@ -683,33 +861,23 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
         security_code: cvvDigits,
       });
       const tokenId = tokenResp?.id || tokenResp?.card?.id || tokenResp?.token;
-      if (!tokenId) {
-        throw new Error("Falha ao tokenizar cartao");
-      }
+      if (!tokenId) throw new Error("Falha ao tokenizar cartão");
 
       const paymentMethodId = normalizePaymentMethodId(resolvePaymentMethodId(selected));
-      if (!paymentMethodId) {
-        throw new Error("Bandeira do cartao indisponivel");
-      }
+      if (!paymentMethodId) throw new Error("Bandeira do cartão indisponível");
 
       const email = payerEmail.trim();
-      if (!email) {
-        throw new Error("Informe o email do pagador");
-      }
+      if (!email) throw new Error("Informe o email do pagador");
 
       const docDigits = onlyDigits(payerDocument);
       const payer: any = { email };
-      if (docDigits) {
-        payer.identification = { type: inferDocumentType(docDigits), number: docDigits };
-      }
+      if (docDigits) payer.identification = { type: inferDocumentType(docDigits), number: docDigits };
 
       const installments = Math.max(1, Number(cardInstallments || 1));
       const deviceId = getMpDeviceId();
       const orderId = `WALLET_DEPOSIT_${Date.now()}`;
       const createOrder = (paymentsClient as any).createMercadoPagoOrderWithCard;
-      if (typeof createOrder !== "function") {
-        throw new Error("Endpoint de cartao indisponivel");
-      }
+      if (typeof createOrder !== "function") throw new Error("Endpoint de cartão indisponível");
 
       return await createOrder({
         orderId,
@@ -723,13 +891,13 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     },
     onSuccess: (data: any) => {
       if (!data) {
-        toast.error("Falha ao processar cartao.");
+        toast.error("Falha ao processar cartão.");
         return;
       }
       setCardOrderResult(data);
       setCardCvv("");
-      const status = mapStatus(data?.status ?? data?.Status ?? "");
 
+      const status = mapStatus(data?.status ?? data?.Status ?? "");
       if (status === "approved") {
         toast.success("Pagamento aprovado. Atualizando saldo...");
         queryClient.invalidateQueries({ queryKey: ["wallet-balances", user?.id] });
@@ -747,13 +915,13 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
       toast.message("Pagamento em processamento. Acompanhe o status.");
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Falha ao processar cartao.");
+      toast.error(error?.message || "Falha ao processar cartão.");
     },
   });
 
-  // ============
-  // CONTADOR: só conta e marca expired localmente. NÃO faz request.
-  // ============
+  // =============================
+  // PIX: contador local (expiração)
+  // =============================
   useEffect(() => {
     let timer: any = null;
 
@@ -781,9 +949,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
       setExpiresIn(null);
     }
 
-    return () => {
-      if (timer) clearInterval(timer);
-    };
+    return () => timer && clearInterval(timer);
   }, [pixData?.expiresAt]);
 
   const isExpiredLocal = useMemo(() => {
@@ -793,9 +959,9 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     return ms <= Date.now();
   }, [pixData?.expiresAt]);
 
-  // ============
-  // POLLING: para sozinho quando isFinal=true ou status final.
-  // ============
+  // =============================
+  // PIX polling
+  // =============================
   const mpStatusQuery = useQuery({
     queryKey: ["mp-status", pixData?.paymentId],
     enabled:
@@ -843,7 +1009,6 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     queryClient.cancelQueries({ queryKey: ["mp-status"] });
   };
 
-  // ✅ aplica resposta do polling + FECHA AUTOMÁTICO quando aprovado final
   useEffect(() => {
     const res: any = mpStatusQuery.data;
     if (!res) return;
@@ -873,31 +1038,25 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
       queryClient.invalidateQueries({ queryKey: ["wallet-ledger", user?.id] });
       refreshUser?.();
 
-      // ✅ FECHA SÓ quando aprovado final
       closePixModal();
       return;
     }
 
     if (normalized === "rejected") {
       toast.error("Pagamento recusado/cancelado. Gere um novo PIX.");
-      setPixData((prev: any) =>
-        prev ? { ...prev, qrCode: null, qrBase64: null } : prev
-      );
+      setPixData((prev: any) => (prev ? { ...prev, qrCode: null, qrBase64: null } : prev));
       setQrImage(null);
       return;
     }
 
     if (normalized === "expired" || statusDetail === "expired") {
       toast.info("PIX expirado. Gere um novo pagamento.");
-      setPixData((prev: any) =>
-        prev ? { ...prev, status: "expired", qrCode: null, qrBase64: null } : prev
-      );
+      setPixData((prev: any) => (prev ? { ...prev, status: "expired", qrCode: null, qrBase64: null } : prev));
       setQrImage(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mpStatusQuery.data]);
 
-  // UI helpers
   const pixStatus = String(pixData?.status || "").toLowerCase();
   const pixIsFinal =
     ["expired", "rejected", "cancelled", "failed"].includes(pixStatus) || (expiresIn ?? 0) <= 0;
@@ -946,7 +1105,6 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     };
   }, [pixData?.paymentId, pixData?.qrBase64, pixData?.qrCode]);
 
-  // Rola até o final quando abrir o modal PIX
   useEffect(() => {
     if (!pixOpen) return;
     const el = pixScrollRef.current;
@@ -970,20 +1128,13 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
           <Wallet className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Acesse sua Carteira</h2>
           <p className="text-slate-500 mb-6">Faça login para gerenciar seu saldo.</p>
-          <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => router.push("/sign-in")}
-          >
+          <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => router.push("/sign-in")}>
             Entrar
           </Button>
         </div>
       </div>
     );
   }
-
-  const pixAmount = Number(pixData?.amount ?? depositAmount) || 0;
-  const pixFee = pixAmount * DEPOSIT_FEE;
-  const pixNet = Math.max(0, pixAmount - pixFee);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -999,410 +1150,36 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div>
               <p className="text-slate-400 text-sm mb-1">Saldo Disponível</p>
-              <p className="text-4xl font-bold">R$ {availableBalance.toFixed(2)}</p>
+              <p className="text-4xl font-bold">
+                {formatCurrencyValue(availableBalance, "BRL")}
+              </p>
             </div>
 
             <div className="flex gap-3">
-              {/* Modal 1: Depósito */}
-              <Dialog open={depositSetupOpen} onOpenChange={(v) => setDepositSetupOpen(v)}>
-                <DialogTrigger asChild>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700">
-                    <ArrowDownCircle className="w-4 h-4 mr-2" />
-                    Depositar
-                  </Button>
-                </DialogTrigger>
-
-                <DialogContent className="w-[min(88vw,720px)] max-h-[92vh] overflow-hidden p-0 focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
-                  <div className="border-b border-slate-100 p-5">
-                    <DialogHeader>
-                      <DialogTitle>Depositar</DialogTitle>
-                      <DialogDescription>Informe o valor e escolha o método.</DialogDescription>
-                    </DialogHeader>
-                  </div>
-
-                  <InvisibleScrollArea className="max-h-[calc(92vh-72px-20px)] pt-1 pb-5 px-5 space-y-5">
-                    <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
-                        Valor do depósito
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                          R$
-                        </span>
-                        <Input
-                          value={depositAmountStr}
-                          onChange={(e: any) => setDepositAmountStr(clampMoneyInput(e.target.value))}
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          className="pl-10 h-12 text-lg"
-                        />
-                      </div>
-                      <p className="text-xs text-slate-500 mt-2">Mínimo: R$ 0,01</p>
-                    </div>
-
-                    {depositAmount > 0 && (
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">Valor</span>
-                          <span className="font-medium">R$ {depositAmount.toFixed(2)}</span>
-                        </div>
-
-                        <div className="mt-2 flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-600">Taxa (2,5%)</span>
-                            <TooltipProvider delayDuration={120}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className="h-5 w-5 rounded-full border border-slate-300 text-slate-600 flex items-center justify-center text-[11px] font-bold select-none"
-                                    aria-label="Entenda a taxa"
-                                  >
-                                    i
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  align="start"
-                                  sideOffset={10}
-                                  className="z-[9999] max-w-[280px] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg"
-                                >
-                                  <p className="font-semibold text-slate-900 mb-1">Tarifa de processamento</p>
-                                  <p>
-                                    Cobramos <strong>2,5%</strong> para cobrir custos do gateway e processamento.
-                                    O desconto já aparece em “Você recebe”.
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-
-                          <span className="font-medium text-rose-600 text-sm">
-                            - R$ {depositFee.toFixed(2)}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 border-t pt-3 flex items-center justify-between">
-                          <span className="font-medium text-slate-900">Você recebe</span>
-                          <span className="font-bold text-emerald-600 text-sm">
-                            R$ {depositNet.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {depositAmount > 0 ? (
-                      <div>
-                        <label className="text-sm font-medium text-slate-700 mb-2 block">
-                          Método de pagamento
-                        </label>
-
-                        <Tabs value={depositMethod} onValueChange={(v) => setDepositMethod(v as DepositMethod)}>
-                          <TabsList
-                            className={`w-full grid ${usableCardMethods.length > 0 ? "grid-cols-2" : "grid-cols-1"}`}
-                          >
-                            <TabsTrigger value="PIX">PIX</TabsTrigger>
-                            {usableCardMethods.length > 0 ? (
-                              <TabsTrigger value="CARD">Cartao</TabsTrigger>
-                            ) : null}
-                          </TabsList>
-                        </Tabs>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-slate-100 bg-yellow-50 p-3 text-sm text-slate-700">
-                        Informe um valor válido para escolher o método de pagamento.
-                      </div>
-                    )}
-
-                    {depositMethod === "PIX" && (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex gap-3">
-                        <QrCode className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />
-                        <div className="text-sm text-slate-600">
-                          No PIX, você recebe um QR Code e o código copia e cola.
-                        </div>
-                      </div>
-                    )}
-
-                    {depositMethod === "PIX" ? (
-                      <div className="mt-2 border-t border-slate-100 pt-4 flex gap-2 mb-6">
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setDepositSetupOpen(false)}
-                          disabled={depositMutation.isPending}
-                        >
-                          Cancelar
-                        </Button>
-
-                        <Button
-                          className="w-full bg-emerald-600 hover:bg-emerald-700"
-                          disabled={depositAmount < 0.01 || depositMutation.isPending}
-                          onClick={() => depositMutation.mutate({ amount: depositAmount })}
-                        >
-                          {depositMutation.isPending ? "Gerando..." : "Gerar PIX"}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </InvisibleScrollArea>
-                </DialogContent>
-              </Dialog>
-
-              {/* Modal 2: PIX */}
-              <Dialog open={pixOpen} onOpenChange={setPixOpen}>
-                <DialogContent className="w-[min(98vw,860px)] max-h-[92vh] overflow-hidden p-0 focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
-                  <div className="border-b border-slate-100 p-5 flex items-start justify-between gap-3">
-                    <div>
-                      <DialogHeader>
-                        <DialogTitle>Pagamento via PIX</DialogTitle>
-                        <DialogDescription>Escaneie o QR ou copie o código.</DialogDescription>
-                      </DialogHeader>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Badge
-                          className={cn(
-                            "capitalize",
-                            (pixData?.status || "pending").toLowerCase() === "approved" ||
-                              (pixData?.status || "").toLowerCase() === "completed"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : pixIsFinal
-                              ? "bg-slate-100 text-slate-700"
-                              : "bg-amber-100 text-amber-700"
-                          )}
-                        >
-                          {pixData?.status || "pending"}
-                        </Badge>
-
-                        <span className="text-xs text-slate-500">
-                          Expira em{" "}
-                          <span className="font-medium">
-                            {formatExpiresAtLabel(pixData?.expiresAt)}
-                          </span>
-                          {" • "}
-                          <span className="font-medium tabular-nums">{formatSecs(expiresIn)}</span>
-                          {mpStatusQuery.isFetching ? (
-                            <span className="ml-2 text-slate-400">(verificando…)</span>
-                          ) : null}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <InvisibleScrollArea ref={pixScrollRef} className="max-h-[calc(92vh-84px)] p-5">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 mb-12">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900">QR Code</p>
-                          <div className="mt-1 text-xs text-slate-500">
-                            Payment id:{" "}
-                            <span className="text-slate-700 font-medium break-all">
-                              {pixData?.paymentId || "—"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button
-                          className="bg-emerald-600 hover:bg-emerald-700 h-9 px-3 text-sm rounded-lg"
-                          onClick={copyPix}
-                          disabled={!pixData?.qrCode || pixIsFinal}
-                        >
-                          <Copy className="w-4 h-4 mr-2" />
-                          Copiar PIX
-                        </Button>
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-center">
-                        {qrImage ? (
-                          <div className="rounded-2xl bg-slate-50 p-5">
-                            <img
-                              src={qrImage}
-                              alt="PIX QR"
-                              className="h-80 w-80 rounded-xl bg-white object-contain shadow-sm"
-                            />
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 w-full">
-                            {pixIsFinal ? (
-                              <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 text-center">
-                                <span className="font-medium">Pagamento encerrado.</span>{" "}
-                                Para continuar, gere um novo PIX.
-                              </div>
-                            ) : (
-                              <div>QR indisponível. Use o código abaixo.</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {!pixIsFinal && (
-                        <div className="mt-6">
-                          <p className="text-sm font-semibold text-slate-900">Código PIX</p>
-                          <p className="text-xs text-slate-500 mt-1">Copie e cole no app do banco.</p>
-
-                          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                            <pre className="whitespace-pre-wrap break-words text-xs text-slate-700">
-                              {pixData?.qrCode || "—"}
-                            </pre>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-baseline justify-between w-full">
-                            <span className="text-xs text-slate-500">Valor</span>
-                            <span className="font-semibold text-slate-900 tabular-nums whitespace-nowrap text-sm">
-                              R$ {pixAmount.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-500">Taxa</span>
-                              <TooltipProvider delayDuration={120}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      className="h-5 w-5 rounded-full border border-slate-300 text-slate-600 flex items-center justify-center text-[11px] font-bold select-none"
-                                      aria-label="Entenda a taxa"
-                                    >
-                                      i
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    align="start"
-                                    sideOffset={10}
-                                    className="z-[9999] max-w-[280px] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg"
-                                  >
-                                    <p className="font-semibold text-slate-900 mb-1">Tarifa de processamento</p>
-                                    <p>
-                                      Cobramos <strong>2,5%</strong> para cobrir custos do gateway e processamento.
-                                      O valor já está descontado no “Você recebe”.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-
-                            <span className="font-medium text-rose-600 tabular-nums whitespace-nowrap text-sm">
-                              - R$ {(pixAmount * DEPOSIT_FEE).toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="flex items-baseline justify-between w-full">
-                            <span className="text-xs text-slate-500">Você recebe</span>
-                            <span className="font-bold text-emerald-600 tabular-nums whitespace-nowrap text-sm">
-                              R$ {(Math.max(0, pixAmount - pixAmount * DEPOSIT_FEE)).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-6">
-                        <Button variant="outline" className="w-full h-11 rounded-xl" onClick={closePixModal}>
-                          Fechar
-                        </Button>
-                      </div>
-                    </div>
-                  </InvisibleScrollArea>
-                </DialogContent>
-              </Dialog>
-
-              {/* Modal 3: Saque */}
-              <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-rose-600 hover:bg-rose-700 text-white">
-                    <ArrowUpCircle className="w-4 h-4 mr-2" />
-                    Sacar
-                  </Button>
-                </DialogTrigger>
-
-                <DialogContent className="w-[min(96vw,720px)] max-h-[92vh] overflow-hidden p-0 focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
-                  <div className="border-b border-slate-100 p-5">
-                    <DialogHeader>
-                      <DialogTitle>Sacar</DialogTitle>
-                      <DialogDescription>Transfira seu saldo para sua conta bancária.</DialogDescription>
-                    </DialogHeader>
-                  </div>
-
-                  <InvisibleScrollArea className="max-h-[calc(92vh-72px-96px)] p-5 space-y-5">
-                    <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
-                        Valor do saque
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                          R$
-                        </span>
-                        <Input
-                          value={withdrawAmountStr}
-                          onChange={(e: any) => setWithdrawAmountStr(clampMoneyInput(e.target.value))}
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          className="pl-10 h-12 text-lg"
-                        />
-                      </div>
-                      <p className="text-sm text-slate-500 mt-2">
-                        Saldo disponível: R$ {availableBalance.toFixed(2)}
-                      </p>
-                    </div>
-
-                    {withdrawAmount > 0 && (
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Valor solicitado</span>
-                          <span className="font-medium">R$ {withdrawAmount.toFixed(2)}</span>
-                        </div>
-                        <div className="mt-2 flex justify-between text-sm">
-                          <span className="text-slate-600">Taxa (7,5%)</span>
-                          <span className="font-medium text-rose-600 text-sm">
-                            - R$ {withdrawFee.toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="mt-3 border-t pt-3 flex justify-between">
-                          <span className="font-medium">Você recebe</span>
-                          <span className="font-bold text-emerald-600">
-                            R$ {withdrawNet.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </InvisibleScrollArea>
-
-                  <div className="border-t border-slate-100 p-5 flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setWithdrawOpen(false)}
-                      disabled={withdrawMutation.isPending}
-                    >
-                      Cancelar
-                    </Button>
-
-                    <Button
-                      className="w-full bg-emerald-600 hover:bg-emerald-700"
-                      disabled={
-                        withdrawAmount < 10 ||
-                        withdrawAmount > availableBalance ||
-                        withdrawMutation.isPending
-                      }
-                      onClick={() => withdrawMutation.mutate(withdrawAmount)}
-                    >
-                      {withdrawMutation.isPending ? "Processando..." : "Confirmar Saque"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => setDepositSetupOpen(true)}
+              >
+                <ArrowDownCircle className="w-4 h-4 mr-2" />
+                Depositar
+              </Button>
+              <Button
+                variant="outline"
+                className="text-white border-white/20 hover:bg-white/10"
+                onClick={() => setWithdrawOpen(true)}
+              >
+                <ArrowUpCircle className="w-4 h-4 mr-2" />
+                Sacar
+              </Button>
             </div>
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
-          <StatsCard title="Total Depositado" value={`R$ ${totals.deposited.toFixed(2)}`} icon={ArrowDownCircle} />
-          <StatsCard title="Total Sacado" value={`R$ ${totals.withdrawn.toFixed(2)}`} icon={ArrowUpCircle} />
-          <StatsCard title="Total Apostado" value={`R$ ${totals.wagered.toFixed(2)}`} icon={CreditCard} />
+          <StatsCard title="Total Depositado" value={formatCurrencyValue(totals.deposited, "BRL")} icon={ArrowDownCircle} />
+          <StatsCard title="Total Sacado" value={formatCurrencyValue(totals.withdrawn, "BRL")} icon={ArrowUpCircle} />
+          <StatsCard title="Total Apostado" value={formatCurrencyValue(totals.wagered, "BRL")} icon={CreditCard} />
         </div>
 
         {/* Fee Transparency */}
@@ -1449,18 +1226,258 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
           ) : transactions.length > 0 ? (
             <div className="divide-y divide-slate-100">
               {transactions.map((tx: any) => (
-                <TransactionRow key={tx.id} transaction={tx} />
+                <TransactionRow
+                  key={tx.id}
+                  transaction={tx}
+                  onClick={tx?.id ? () => handleOpenReceipt(tx.id) : undefined}
+                />
               ))}
             </div>
           ) : (
             <div className="p-12 text-center">
               <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="font-semibold text-slate-900 mb-2">Sem transações</h3>
+              <h3 className="font-semibold text-slate-900 mb-2">Sem recibos</h3>
               <p className="text-slate-500">Suas transações aparecerão aqui.</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* ===== MODAL DEPÓSITO (simples) ===== */}
+      <Dialog open={depositSetupOpen} onOpenChange={setDepositSetupOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Depositar</DialogTitle>
+            <DialogDescription>Escolha o método e informe o valor.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">Valor</p>
+                <Input
+                  value={depositAmountStr}
+                  onChange={(e) => setDepositAmountStr(clampMoneyInput(e.target.value))}
+                  placeholder="Ex: 150.00"
+                />
+                <p className="text-xs text-slate-500">
+                  Taxa: {formatCurrencyValue(depositFee, "BRL")} • Líquido:{" "}
+                  {formatCurrencyValue(depositNet, "BRL")}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">Método</p>
+                <Select value={depositMethod} onValueChange={(v) => setDepositMethod(v as DepositMethod)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="CARD" disabled={usableCardMethods.length === 0}>
+                      Cartão
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {depositMethod === "CARD" && usableCardMethods.length === 0 ? (
+                  <p className="text-xs text-rose-600">Você não tem cartão salvo.</p>
+                ) : null}
+              </div>
+            </div>
+
+            {depositMethod === "CARD" ? (
+              <div className="space-y-3">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Cartão</p>
+                    <Select value={selectedCardId} onValueChange={setSelectedCardId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cartão" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {usableCardMethods.map((m: any) => {
+                          const id = String(resolveMpCardId(m) || "");
+                          return (
+                            <SelectItem key={id} value={id}>
+                              {formatCardLabel(m)}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Parcelas</p>
+                    <Select value={cardInstallments} onValueChange={setCardInstallments}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }).map((_, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>
+                            {i + 1}x
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">CVV</p>
+                    <Input value={cardCvv} onChange={(e) => setCardCvv(onlyDigits(e.target.value).slice(0, 4))} placeholder="***" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Email do pagador</p>
+                    <Input value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} placeholder="email@exemplo.com" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-700">Documento do pagador (CPF/CNPJ)</p>
+                  <Input value={payerDocument} onChange={(e) => setPayerDocument(onlyDigits(e.target.value).slice(0, 14))} placeholder="Somente números" />
+                  <p className="text-xs text-slate-500">Detectado: {inferDocumentType(onlyDigits(payerDocument || ""))}</p>
+                </div>
+
+                <Button
+                  className="w-full"
+                  disabled={cardOrderMutation.isPending}
+                  onClick={() => cardOrderMutation.mutate()}
+                >
+                  {cardOrderMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    "Pagar com cartão"
+                  )}
+                </Button>
+
+                {cardOrderResult ? (
+                  <div className="text-xs text-slate-500 break-all">
+                    Resultado: {JSON.stringify(cardOrderResult)}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                disabled={depositMutation.isPending}
+                onClick={() => depositMutation.mutate({ amount: depositAmount })}
+              >
+                {depositMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Gerando PIX...
+                  </>
+                ) : (
+                  "Gerar PIX"
+                )}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== MODAL PIX (instrumento de pagamento) ===== */}
+      <Dialog open={pixOpen} onOpenChange={(v) => (!v ? closePixModal() : setPixOpen(true))}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Pagamento via PIX</DialogTitle>
+            <DialogDescription>
+              Use o QR ou copie o código. (Isso não é recibo — é pagamento.)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div ref={pixScrollRef} className="max-h-[70vh] overflow-y-auto pr-1 space-y-4">
+            <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+              <p className="text-sm text-slate-700">
+                Status:{" "}
+                <span className="font-semibold capitalize">{pixStatus || "pendente"}</span>
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Expira em: {formatExpiresAtLabel(pixData?.expiresAt)} • Restante:{" "}
+                {expiresIn == null ? "-" : `${Math.floor(expiresIn / 60)
+                  .toString()
+                  .padStart(2, "0")}:${Math.floor(expiresIn % 60)
+                  .toString()
+                  .padStart(2, "0")}`}
+              </p>
+            </div>
+
+            {qrImage ? (
+              <div className="flex justify-center">
+                <img
+                  src={qrImage}
+                  alt="QR Code PIX"
+                  className={cn(
+                    "w-60 h-60 object-contain rounded-xl border",
+                    pixIsFinal && "opacity-40"
+                  )}
+                />
+              </div>
+            ) : null}
+
+            <div className="flex gap-2">
+              <Button className="flex-1" variant="outline" onClick={copyPix} disabled={pixIsFinal}>
+                Copiar código PIX
+              </Button>
+              <Button className="flex-1" onClick={closePixModal}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== MODAL SAQUE (simples) ===== */}
+      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Saque</DialogTitle>
+            <DialogDescription>Informe o valor do saque.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              value={withdrawAmountStr}
+              onChange={(e) => setWithdrawAmountStr(clampMoneyInput(e.target.value))}
+              placeholder="Ex: 100.00"
+            />
+            <p className="text-xs text-slate-500">
+              Taxa: {formatCurrencyValue(withdrawFee, "BRL")} • Líquido:{" "}
+              {formatCurrencyValue(withdrawNet, "BRL")}
+            </p>
+
+            <Button
+              className="w-full"
+              disabled={withdrawMutation.isPending}
+              onClick={() => withdrawMutation.mutate(withdrawAmount)}
+            >
+              {withdrawMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Solicitando...
+                </>
+              ) : (
+                "Solicitar saque"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ReceiptModal
+        open={receiptModalOpen}
+        receiptId={selectedReceiptId}
+        onOpenChange={(open) => {
+          setReceiptModalOpen(open);
+          if (!open) setSelectedReceiptId(null);
+        }}
+      />
     </div>
   );
 }

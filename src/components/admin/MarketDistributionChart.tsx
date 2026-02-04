@@ -11,21 +11,21 @@ type Market = {
 // Colors moved to CSS variables in `src/index.css` and exposed via Tailwind
 
 const LABELS: Record<string, string> = {
-  trending: 'Em Alta',
-  new: 'Novidades',
-  all: 'Todas',
-  politics: 'Política',
-  sports: 'Esportes',
-  culture: 'Cultura',
-  crypto: 'Criptomoedas',
-  weather: 'Clima',
-  economy: 'Economia',
-  mentions: 'Menções',
-  companies: 'Empresas',
-  finance: 'Finanças',
-  technology: 'Tecnologia e Ciência',
-  health: 'Saúde',
-  world: 'Mundo'
+  "EM-ALTA": "Em Alta",
+  "NOVIDADES": "Novidades",
+  "TODAS": "Todas",
+  "POLITICA": "Política",
+  "ESPORTES": "Esportes",
+  "CULTURA": "Cultura",
+  "CRIPTOMOEDAS": "Criptomoedas",
+  "CLIMA": "Clima",
+  "ECONOMIA": "Economia",
+  "MENCOES": "Menções",
+  "EMPRESAS": "Empresas",
+  "FINANCAS": "Finanças",
+  "TECNOLOGIA-E-CIENCIA": "Tecnologia e Ciência",
+  "SAUDE": "Saúde",
+  "MUNDO": "Mundo"
 };
 
 type CategoryEntry = {
@@ -40,7 +40,7 @@ export default function MarketDistributionChart({ markets }: { markets?: Market[
     const grouped: Record<string, { name: string; value: number; count: number }> = {};
 
     (markets || []).forEach(market => {
-      const category = market?.category || 'other';
+      const category = market?.category || 'OTHER';
       if (!grouped[category]) {
         grouped[category] = {
           name: LABELS[category] || category,
@@ -106,3 +106,4 @@ export default function MarketDistributionChart({ markets }: { markets?: Market[
     </Card>
   );
 }
+

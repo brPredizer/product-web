@@ -373,7 +373,7 @@ export default function RiskControlsPage({ user }: RiskControlsProps) {
               </p>
               <p>
                 Se você perceber sinais de perda de controle ou sofrimento relacionado a apostas, 
-                busque ajuda profissional. O PredictX apoia o jogo responsável.
+                busque ajuda profissional. O Predizer apoia o jogo responsável.
               </p>
             </CardContent>
           </Card>

@@ -21,11 +21,11 @@ const defaultState: State = {
     lastLoginRedirect: null
   },
   app: {
-    id: 'predictx-local',
+    id: 'predizer-local',
     public_settings: {
       auth_required: false,
-      name: 'PredictX (Local Preview)',
-      marketing_site: 'https://predictx.local'
+      name: 'Predizer (Local Preview)',
+      marketing_site: 'https://predizer.local'
     }
   },
   logs: [],
@@ -35,7 +35,7 @@ const defaultState: State = {
         id: 'user-1',
         username: 'ana',
         full_name: 'Ana Souza',
-        email: 'ana@predictx.com',
+        email: 'ana@predizer.com',
         role: 'admin',
         admin_level: 3,
         balance: 15250.75,
@@ -54,7 +54,7 @@ const defaultState: State = {
         id: 'user-2',
         username: 'bruno',
         full_name: 'Bruno Lima',
-        email: 'bruno@predictx.com',
+        email: 'bruno@predizer.com',
         role: 'trader',
         balance: 2450.5,
         total_deposited: 7800,
@@ -72,7 +72,7 @@ const defaultState: State = {
         id: 'user-3',
         username: 'carla',
         full_name: 'Carla Menezes',
-        email: 'carla@predictx.com',
+        email: 'carla@predizer.com',
         role: 'user',
         admin_level: 0,
         balance: 1250.25,
@@ -237,13 +237,13 @@ const defaultState: State = {
       {
         id: 'wd-1',
         user_id: 'user-1',
-        user_email: 'ana@predictx.com',
+        user_email: 'ana@predizer.com',
         amount: 800,
         fee: 60,
         net_amount: 740,
         status: 'pending',
         payment_method: 'PIX',
-        payment_details: 'ana@predictx.com',
+        payment_details: 'ana@predizer.com',
         created_date: '2024-12-26T09:10:00Z'
       }
     ],
@@ -289,7 +289,7 @@ const defaultState: State = {
       {
         id: 'campaign-1',
         name: 'Campanha Copa América',
-        advertiser: 'PredictX',
+        advertiser: 'Predizer',
         slot: 'header_banner',
         status: 'active',
         impressions: 185000,
@@ -298,8 +298,8 @@ const defaultState: State = {
         budget: 6000,
         start_date: '2024-12-01T00:00:00Z',
         end_date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 45).toISOString(),
-        creative_url: 'https://images.predictx.local/campaigns/copa.png',
-        destination_url: 'https://predictx.com.br/copa'
+        creative_url: 'https://images.predizer.local/campaigns/copa.png',
+        destination_url: 'https://predizer.com.br/copa'
       }
     ]
   }
@@ -311,32 +311,15 @@ const createHttpError = (message: string, status = 500) => {
   return error;
 };
 
+// Mock persistence desabilitado para evitar cache em localStorage
 const readPersistedState = (): State => {
-  if (!isBrowser) return deepClone(defaultState);
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return deepClone(defaultState);
-    const parsed = JSON.parse(raw) as Partial<State>;
-    return {
-      ...deepClone(defaultState),
-      ...parsed,
-      entities: { ...deepClone(defaultState.entities), ...(parsed.entities || {}) }
-    };
-  } catch (error) {
-    console.warn('Failed to read mock state, using defaults:', error);
-    return deepClone(defaultState);
-  }
+  return deepClone(defaultState);
 };
 
 let state: State = readPersistedState();
 
 const persistState = (): void => {
-  if (!isBrowser) return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.warn('Failed to persist mock state:', error);
-  }
+  // noop: não persistir mock em localStorage para evitar dados antigos
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -495,7 +478,7 @@ const loginDefaultUser = (): AnyRecord | null => {
 
 const emitAuthEvent = (): void => {
   if (isBrowser) {
-    window.dispatchEvent(new CustomEvent('predictx:auth-changed'));
+    window.dispatchEvent(new CustomEvent('predizer:auth-changed'));
   }
 };
 

@@ -10,7 +10,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
 import { authClient } from "@/app/api/auth";
-import { apiRequest, createIdempotencyKey } from "@/app/api/api";
+import { apiRequest, createIdempotencyKey, isAdminL2 } from "@/app/api/api";
 import { mockApi } from "@/app/api/mockClient";
 import { marketsClient } from '@/app/api/markets/client';
 import { createPageUrl } from "@/routes";
@@ -47,6 +47,23 @@ const categoryLabels: Record<string, string> = {
   'MUNDO': 'Mundo',
 };
 
+const categoryColors: Record<string, string> = {
+  CLIMA: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/25',
+  CRIPTOMOEDAS: 'bg-amber-500/10 text-amber-800 border-amber-500/25',
+  CULTURA: 'bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/25',
+  ECONOMIA: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25',
+  'EM-ALTA': 'bg-lime-400/15 text-lime-800 border-lime-500/25',
+  EMPRESAS: 'bg-sky-500/10 text-sky-700 border-sky-500/25',
+  ESPORTES: 'bg-orange-500/10 text-orange-700 border-orange-500/25',
+  FINANCAS: 'bg-rose-500/10 text-rose-700 border-rose-500/25',
+  MENCOES: 'bg-slate-200 text-slate-700 border-slate-300/60',
+  MUNDO: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/25',
+  NOVIDADES: 'bg-teal-500/10 text-teal-700 border-teal-500/25',
+  POLITICA: 'bg-blue-500/10 text-blue-700 border-blue-500/25',
+  SAUDE: 'bg-red-500/10 text-red-700 border-red-500/25',
+  'TECNOLOGIA-E-CIENCIA': 'bg-purple-500/10 text-purple-700 border-purple-500/25',
+};
+
 const statusLabels: Record<string, { label: string; color: string }> = {
   open: { label: "Aberto", color: "bg-emerald-100 text-emerald-700" },
   closed: { label: "Encerrado", color: "bg-slate-100 text-slate-700" },
@@ -79,6 +96,8 @@ export default function Market({ user, refreshUser }: Props) {
   const marketId = searchParams.get("id");
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const searchQuery = searchParams?.toString();
+  const nextPath = searchQuery ? `${pathname}?${searchQuery}` : (pathname ?? "/");
 
   const { data: market, isLoading } = useQuery<any>({
     queryKey: ["market", marketId],
@@ -214,6 +233,7 @@ export default function Market({ user, refreshUser }: Props) {
 
   const status = statusLabels[market.status] || statusLabels.open;
   const isOpen = market.status === "open";
+  const canEdit = isAdminL2(effectiveUser);
 
   const userPosition = positions.reduce((acc: any, pos: any) => {
     if (!acc[pos.side]) acc[pos.side] = { contracts: 0, invested: 0 };
@@ -238,8 +258,11 @@ export default function Market({ user, refreshUser }: Props) {
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-4">
-                <Badge variant="outline" className="text-slate-600">
-                  {categoryLabels[market.category] ?? "Categoria"}
+                <Badge
+                  variant="outline"
+                  className={`text-slate-600 ${categoryColors[String(market.category ?? "")] ?? ""}`}
+                >
+                  {categoryLabels[String(market.category ?? "")] ?? "Categoria"}
                 </Badge>
                 <Badge className={status.color}>{status.label}</Badge>
               </div>
@@ -268,6 +291,15 @@ export default function Market({ user, refreshUser }: Props) {
                 </div>
               </div>
             </div>
+            {canEdit && marketId && (
+              <div className="shrink-0">
+                <Link href={createPageUrl(`CreateMarket?id=${marketId}`)}>
+                  <Button variant="outline" className="border-slate-200">
+                    Editar mercado
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -470,7 +502,7 @@ export default function Market({ user, refreshUser }: Props) {
                       <p className="text-sm text-slate-600 mb-4">Faça login para negociar neste mercado.</p>
 
                       <div className="flex items-center justify-center">
-                        <Link href={createPageUrl("SignIn") + `?next=${encodeURIComponent(pathname ?? "/")}`}>
+                        <Link href={createPageUrl("SignIn") + `?next=${encodeURIComponent(nextPath)}`}>
                           <Button className="w-full  bg-emerald-600 hover:bg-emerald-700">Entrar para negociar</Button>
                         </Link>
                       </div>
@@ -495,3 +527,6 @@ export default function Market({ user, refreshUser }: Props) {
     </div>
   );
 }
+
+
+

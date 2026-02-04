@@ -268,7 +268,7 @@ function SignInPageContent(): JSX.Element {
 
   return (
     <>
-      <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <div className="relative min-h-[80vh] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-12">
       <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
       <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
       <div
@@ -280,7 +280,7 @@ function SignInPageContent(): JSX.Element {
         }}
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 py-10 sm:py-12">
+      <div className="relative mx-auto max-w-6xl w-full">
         <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
           <div className="grid grid-cols-1 md:grid-cols-2 items-stretch">
             {/* Lado esquerdo */}
@@ -291,9 +291,8 @@ function SignInPageContent(): JSX.Element {
                 </div>
                 <div className="leading-tight">
                   <p className="text-xs text-slate-500">Bem-vindo ao</p>
-                  <p className="text-base font-bold text-slate-900">
-                    Predict<span className="text-emerald-600">X</span>
-                  </p>
+            <span className="text-xl font-bold text-slate-900">Pre<span className="text-emerald-600">dizer</span></span>
+
                 </div>
               </div>
 

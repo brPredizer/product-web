@@ -560,7 +560,7 @@ export default function Admin({ user }: AdminProps) {
             <div>
               <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                 <Shield className="w-6 h-6 text-emerald-600" />
-                PredictX Admin Hub
+                Predizer Admin Hub
               </h1>
               <p className="text-slate-500 mt-1">Gestão completa da plataforma</p>
             </div>
@@ -578,12 +578,14 @@ export default function Admin({ user }: AdminProps) {
               
               <PeriodSelector period={period} onPeriodChange={setPeriod} />
               
-              <Link href={createPageUrl('CreateMarket')}>
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Novo Mercado
-                </Button>
-              </Link>
+              {isAdminL2(user) && (
+                <Link href={createPageUrl('CreateMarket')}>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Novo Mercado
+                  </Button>
+                </Link>
+              )}
 
               <Button variant="outline">
                 <Download className="w-4 h-4 mr-2" />
@@ -1878,7 +1880,7 @@ export default function Admin({ user }: AdminProps) {
                 <div>
                   <p className="font-semibold text-blue-900 mb-2">Conformidade e Responsabilidade</p>
                   <p className="text-sm text-blue-800">
-                    O PredictX implementa controles de risco obrigatórios inspirados em práticas de mercados 
+                    O Predizer implementa controles de risco obrigatórios inspirados em práticas de mercados 
                     regulados e jogo responsável. Todos os usuários devem aceitar o Termo de Ciência antes 
                     da primeira aposta, e o sistema rastreia aceites de forma imutável para auditoria.
                   </p>

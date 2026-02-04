@@ -28,8 +28,9 @@ export const signOut = () => authClient.signOut();
 
 export const refresh = () => authClient.refresh();
 
-export const confirmEmail = (userId: string, code: string) =>
-  authClient.confirmEmail({ userId, code } as any);
+export type ConfirmEmailParams = { userId?: string; code?: string; shortCode?: string };
+
+export const confirmEmail = (params: ConfirmEmailParams) => authClient.confirmEmail(params as any);
 
 export const resendConfirmationEmail = (email: string) =>
   authClient.resendConfirmationEmail({ email } as any);

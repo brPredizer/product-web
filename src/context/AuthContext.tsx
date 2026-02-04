@@ -131,8 +131,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setWalletAvailableBalance(0);
       }
     };
-    window.addEventListener('predictx:auth-changed', handler);
-    return () => window.removeEventListener('predictx:auth-changed', handler);
+    window.addEventListener('predizer:auth-changed', handler);
+    return () => window.removeEventListener('predizer:auth-changed', handler);
   }, [applySession, loadWalletBalance]);
 
   const logout = async (shouldRedirect = true) => {

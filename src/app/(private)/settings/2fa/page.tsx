@@ -70,7 +70,7 @@ export default function TwoFactorSettingsPage(): JSX.Element {
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-center">
         <p className="text-sm text-slate-600">Voce precisa estar logado para gerenciar 2FA.</p>
         <Link href="/sign-in">
-          <Button className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700">Ir para login</Button>
+          <Button className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700">Ir para login</Button>
         </Link>
       </div>
     );

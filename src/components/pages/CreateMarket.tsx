@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { mockApi } from '@/app/api/mockClient';
 import { apiRequest, createIdempotencyKey } from '@/app/api/api';
-import { isAdminL1 } from '@/app/api/api';
+import { isAdminL2 } from '@/app/api/api';
 import { createPageUrl } from '@/routes';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,21 +39,20 @@ const SelectContentC = (SelectContent as unknown) as React.ComponentType<any>;
 const SelectItemC = (SelectItem as unknown) as React.ComponentType<any>;
 const SelectTriggerC = (SelectTrigger as unknown) as React.ComponentType<any>;
 const SelectValueC = (SelectValue as unknown) as React.ComponentType<any>;
-const mockApiAny = mockApi as any;
 
 const categories = [
-  { id: 'politica', name: 'Política' },
-  { id: 'esportes', name: 'Esportes' },
-  { id: 'cultura', name: 'Cultura' },
-  { id: 'criptomoedas', name: 'Criptomoedas' },
-  { id: 'clima', name: 'Clima' },
-  { id: 'economia', name: 'Economia' },
-  { id: 'mencoes', name: 'Menções' },
-  { id: 'empresas', name: 'Empresas' },
-  { id: 'financas', name: 'Finanças' },
-  { id: 'tecnologia-e-ciencia', name: 'Tecnologia e Ciência' },
-  { id: 'saude', name: 'Saúde' },
-  { id: 'mundo', name: 'Mundo' },
+  { id: "POLITICA", name: "Política" },
+  { id: "ESPORTES", name: "Esportes" },
+  { id: "CULTURA", name: "Cultura" },
+  { id: "CRIPTOMOEDAS", name: "Criptomoedas" },
+  { id: "CLIMA", name: "Clima" },
+  { id: "ECONOMIA", name: "Economia" },
+  { id: "MENCOES", name: "Menções" },
+  { id: "EMPRESAS", name: "Empresas" },
+  { id: "FINANCAS", name: "Finanças" },
+  { id: "TECNOLOGIA-E-CIENCIA", name: "Tecnologia e Ciência" },
+  { id: "SAUDE", name: "Saúde" },
+  { id: "MUNDO", name: "Mundo" },
 ];
 
 const toLocalInputValue = (date: Date) => {
@@ -66,6 +65,13 @@ const toIsoStringOrNull = (value?: string | null) => {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const toLocalInputOrEmpty = (value?: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return toLocalInputValue(date);
 };
 
 const clampProbability = (value: unknown) => {
@@ -148,13 +154,15 @@ interface Props {
 
 export default function CreateMarket({ user }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const marketId = searchParams.get('id');
   const queryClient = useQueryClient();
   const defaultClosing = toLocalInputValue(new Date(Date.now() + 1000 * 60 * 60 * 24 * 14));
   const defaultResolution = toLocalInputValue(new Date(Date.now() + 1000 * 60 * 60 * 24 * 21));
 
   const [formData, setFormData] = useState({
     title: '',
-    category: 'economia',
+    category: 'ECONOMIA',
     description: '',
     resolutionSource: '',
     closingDate: defaultClosing,
@@ -162,6 +170,10 @@ export default function CreateMarket({ user }: Props) {
     probability: 55,
     featured: false,
   });
+  const [didHydrateEdit, setDidHydrateEdit] = useState(false);
+  useEffect(() => {
+    setDidHydrateEdit(false);
+  }, [marketId]);
   const yesPercent = formData.probability;
   const setYesPercent = (value: number) => setFormData((prev) => ({ ...prev, probability: value }));
   const categoryLabel = categories.find((c) => c.id === formData.category)?.name || '—';
@@ -170,12 +182,37 @@ export default function CreateMarket({ user }: Props) {
   const yesPrice = (yesInt / 100).toFixed(2);
   const noPrice = (noInt / 100).toFixed(2);
 
-  const createMutation = useMutation<any, any, any>({
+  const { data: marketToEdit } = useQuery<any>({
+    queryKey: ['market', 'edit', marketId],
+    queryFn: async () => {
+      if (!marketId) return null;
+      const res = await apiRequest<any>(`/markets/${marketId}`);
+      const raw = res?.data ?? (res?.items && Array.isArray(res.items) ? res.items[0] : res);
+      if (!raw) return null;
+      const { normalizeMarket } = await import("@/lib/normalizeMarket");
+      return normalizeMarket(raw);
+    },
+    enabled: !!marketId,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!marketToEdit || didHydrateEdit) return;
+    setFormData({
+      title: marketToEdit.title ?? '',
+      category: marketToEdit.category ?? 'economia',
+      description: marketToEdit.description ?? '',
+      resolutionSource: marketToEdit.resolutionSource ?? marketToEdit.resolution_source ?? '',
+      closingDate: toLocalInputOrEmpty(marketToEdit.closing_date ?? marketToEdit.closingDate) || defaultClosing,
+      resolutionDate: toLocalInputOrEmpty(marketToEdit.resolution_date ?? marketToEdit.resolutionDate) || defaultResolution,
+      probability: clampProbability(marketToEdit.probability_yes ?? marketToEdit.probabilityYes ?? 50),
+      featured: Boolean(marketToEdit.featured ?? false),
+    });
+    setDidHydrateEdit(true);
+  }, [marketToEdit, defaultClosing, defaultResolution, didHydrateEdit]);
+
+  const createOrUpdateMutation = useMutation<any, any, any>({
     mutationFn: async (payload) => {
-      // Call backend create endpoint
-      const headers: Record<string, string> = {
-        'Idempotency-Key': createIdempotencyKey(),
-      };
       const body = {
         title: payload.title,
         description: payload.description,
@@ -187,27 +224,29 @@ export default function CreateMarket({ user }: Props) {
         resolutionSource: payload.resolution_source ?? payload.resolutionSource,
         featured: payload.featured ?? false,
       };
-
-      const res = await apiRequest<any>('/markets/create-market', { method: 'POST', body, headers });
-      return res;
+      if (marketId) {
+        return apiRequest<any>(`/markets/${marketId}`, { method: 'PUT', body });
+      }
+      const headers: Record<string, string> = {
+        'Idempotency-Key': createIdempotencyKey(),
+      };
+      return apiRequest<any>('/markets/create-market', { method: 'POST', body, headers });
     },
     onSuccess: async (market) => {
-      toast.success('Mercado criado com sucesso');
+      toast.success(marketId ? 'Mercado atualizado com sucesso' : 'Mercado criado com sucesso');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-markets'] } as any),
         queryClient.invalidateQueries({ queryKey: ['markets', 'explore'] } as any),
       ]);
-      // API should return created MarketResponse with id
-      const createdId = market?.id ?? market?.data?.id;
-      if (createdId) {
-        router.push(createPageUrl(`Market?id=${createdId}`));
+      const targetId = marketId ?? market?.id ?? market?.data?.id;
+      if (targetId) {
+        router.push(createPageUrl(`Market?id=${targetId}`));
       } else {
-        // fallback: go to explore
         router.push(createPageUrl('Explore'));
       }
     },
     onError: (err: any) => {
-      const message = err?.message ?? 'Erro ao criar mercado';
+      const message = err?.message ?? (marketId ? 'Erro ao atualizar mercado' : 'Erro ao criar mercado');
       toast.error(message);
     },
   });
@@ -215,7 +254,7 @@ export default function CreateMarket({ user }: Props) {
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!user || !isAdminL1(user)) {
+    if (!user || !isAdminL2(user)) {
       toast.error('Apenas administradores podem criar mercados por enquanto.');
       return;
     }
@@ -236,7 +275,7 @@ export default function CreateMarket({ user }: Props) {
     const yes = Number(yesPrice);
     const no = Number(noPrice);
 
-    createMutation.mutate({
+    createOrUpdateMutation.mutate({
       title: formData.title.trim(),
       description: formData.description.trim(),
       category: formData.category,
@@ -249,7 +288,7 @@ export default function CreateMarket({ user }: Props) {
     });
   };
 
-  if (!user || !isAdminL1(user)) {
+  if (!user || !isAdminL2(user)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-8 max-w-md text-center shadow-sm">
@@ -282,8 +321,8 @@ export default function CreateMarket({ user }: Props) {
                   <Shield className="w-5 h-5 text-emerald-600" />
                   <BadgeC variant="outline" className="border-emerald-200 text-emerald-700">Admin</BadgeC>
                 </div>
-                <h1 className="text-2xl font-bold text-slate-900">Criar novo mercado</h1>
-                <p className="text-slate-500">Defina título, probabilidade inicial e critérios de resolução.</p>
+                <h1 className="text-2xl font-bold text-slate-900">{marketId ? "Editar mercado" : "Criar novo mercado"}</h1>
+                <p className="text-slate-500">{marketId ? "Atualize título, probabilidade inicial e critérios de resolução." : "Defina título, probabilidade inicial e critérios de resolução."}</p>
               </div>
               <Button
                 variant="outline"
@@ -305,8 +344,8 @@ export default function CreateMarket({ user }: Props) {
         <div className="grid lg:grid-cols-[1.5fr_1fr] gap-6">
           <CardC className="p-6 border border-slate-200 shadow-sm">
             <form className="space-y-6" onSubmit={handleSubmit}>
-                <div className="space-y-0.5">
-                  <LabelC htmlFor="title">Título</LabelC>
+              <div className="space-y-0.5">
+                <LabelC htmlFor="title">Título</LabelC>
                 <InputC
                   id="title"
                   placeholder="Ex: Selic ficará acima de 10% em 2025?"
@@ -393,7 +432,9 @@ export default function CreateMarket({ user }: Props) {
                 <CheckboxC
                   id="featured"
                   checked={formData.featured}
-                  onCheckedChange={(checked) => setFormData({ ...formData, featured: Boolean(checked) })}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, featured: checked === true }))
+                  }
                 />
                 <div className="space-y-0.5">
                   <LabelC htmlFor="featured" className="cursor-pointer">Destacar na home</LabelC>
@@ -406,9 +447,11 @@ export default function CreateMarket({ user }: Props) {
                 <Button
                   type="submit"
                   className="bg-emerald-600 hover:bg-emerald-700"
-                  disabled={(createMutation as any).isLoading}
+                  disabled={(createOrUpdateMutation as any).isLoading}
                 >
-                  {(createMutation as any).isLoading ? 'Criando...' : 'Criar mercado'}
+                  {(createOrUpdateMutation as any).isLoading
+                    ? (marketId ? 'Salvando...' : 'Criando...')
+                    : (marketId ? 'Salvar alteracoes' : 'Criar mercado')}
                 </Button>
               </div>
             </form>
@@ -469,3 +512,5 @@ export default function CreateMarket({ user }: Props) {
     </div>
   );
 }
+
+

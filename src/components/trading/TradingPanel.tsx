@@ -1,7 +1,6 @@
 "use client"
 import React, { useState } from 'react'
-import { mockApi } from '@/app/api/mockClient'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 // import { Slider } from "@/components/ui/slider";
@@ -10,7 +9,13 @@ import { AlertCircle, TrendingUp, TrendingDown, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import RiskAssistant from './RiskAssistant'
 import RiskDisclosureModal from '../risk/RiskDisclosureModal'
-import { addMonths } from 'date-fns'
+import {
+  riskTermsClient,
+  type RiskAcceptance,
+  type RiskTermResponse,
+  isAcceptanceMissingError,
+} from '@/app/api/terms/riskTermsClient'
+import { toast } from 'sonner'
 
 type Market = any
 
@@ -45,26 +50,80 @@ export default function TradingPanel({
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [showRiskModal, setShowRiskModal] = useState<boolean>(false)
   const [pendingTrade, setPendingTrade] = useState<any>(null)
-  const queryClient = useQueryClient()
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false)
+  const rawMarketId = market?.id ?? market?.marketId ?? market?.market_id ?? null
+  const marketId = rawMarketId ? String(rawMarketId) : null
 
-  const { data: disclosures = [] } = useQuery({
-    queryKey: ['risk-disclosures', userId],
-    queryFn: () => mockApi.entities.RiskDisclosure.filter({ user_id: userId }, '-created_date', 10),
-    enabled: !!userId,
+  const {
+    data: acceptance,
+    error: acceptanceError,
+    refetch: refetchAcceptance,
+  } = useQuery<RiskAcceptance | null>({
+    queryKey: ['risk-acceptance', userId, marketId],
+    queryFn: () => riskTermsClient.getAcceptance({ marketId }),
+    enabled: !!userId && !!marketId,
+    staleTime: 5 * 60 * 1000,
   })
 
-  const createDisclosureMutation = useMutation({
-    mutationFn: (data: any) => mockApi.entities.RiskDisclosure.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['risk-disclosures', userId] })
+  const {
+    data: riskTerm,
+    isFetching: isTermLoading,
+    error: riskTermError,
+    refetch: refetchRiskTerm,
+  } = useQuery<RiskTermResponse>({
+    queryKey: ['risk-term', marketId],
+    queryFn: () => riskTermsClient.getRiskTerms({ marketId }),
+    enabled: !!showRiskModal && !!marketId,
+  })
+  const riskTermErrorMessage = riskTermError instanceof Error ? riskTermError.message : null
+
+  const acceptRiskMutation = useMutation({
+    mutationFn: async () => {
+      if (!marketId) throw new Error('marketId ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© obrigatÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³rio para registrar aceite.')
+      const snapshot = riskTerm?.text ?? ''
+      let termHash: string | null = null
+
+      if (snapshot && typeof window !== 'undefined' && window.crypto?.subtle) {
+        const encoder = new TextEncoder()
+        const data = encoder.encode(snapshot)
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data)
+        termHash = Array.from(new Uint8Array(hashBuffer))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('')
+      }
+
+      return riskTermsClient.acceptRiskTerms({
+        marketId,
+        termVersion: riskTerm?.termVersion ?? undefined,
+        termSnapshot: snapshot || undefined,
+        termHash: termHash ?? undefined,
+      })
+    },
+    onSuccess: async () => {
+      await refetchAcceptance()
+      setShowRiskModal(false)
+      toast.success('Aceite registrado.')
+
+      if (pendingTrade) {
+        executeTrade(pendingTrade)
+      }
+      setPendingTrade(null)
+    },
+    onError: (error: any) => {
+      const message = error?.message || 'NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­vel registrar o aceite.'
+      toast.error(message)
     },
   })
 
-  const hasValidDisclosure = disclosures.some((d: any) => {
-    if (d.revoked) return false
-    const validUntil = new Date(d.valid_until)
-    return validUntil > new Date()
-  })
+  const hasAcceptedRisk = Boolean(acceptance?.id)
+  const acceptanceDate = acceptance?.acceptedAt || null
+  const acceptanceVersion = acceptance?.termVersion ?? riskTerm?.termVersion ?? null
+  const acceptanceDateLabel = (() => {
+    if (!acceptanceDate) return null
+    const parsed = new Date(acceptanceDate)
+    if (Number.isNaN(parsed.getTime())) return null
+    return parsed.toLocaleString('pt-BR')
+  })()
 
   const yesPriceNum = Number(market?.yes_price ?? 0.5)
   const noPriceNum = Number(market?.no_price ?? (1 - yesPriceNum))
@@ -73,28 +132,74 @@ export default function TradingPanel({
   const potentialPayout = units * 1
   const potentialProfit = potentialPayout - (parseFloat(amount) || 0)
 
+  const resolveAcceptanceStatus = async (): Promise<
+    { state: 'accepted' | 'missing' | 'error'; errorMessage?: string }
+  > => {
+    if (hasAcceptedRisk) return { state: 'accepted' }
+    if (acceptance === null) return { state: 'missing' }
+
+    if (acceptanceError) {
+      return {
+        state: isAcceptanceMissingError(acceptanceError) ? 'missing' : 'error',
+        errorMessage: (acceptanceError as any)?.message,
+      }
+    }
+
+    try {
+      const result = await refetchAcceptance()
+      const latest = result?.data
+
+      if (latest && (latest as RiskAcceptance)?.id) return { state: 'accepted' }
+      if (latest === null) return { state: 'missing' }
+
+      if (result?.error) {
+        return {
+          state: isAcceptanceMissingError(result.error) ? 'missing' : 'error',
+          errorMessage: (result.error as any)?.message,
+        }
+      }
+    } catch (err: any) {
+      return {
+        state: isAcceptanceMissingError(err) ? 'missing' : 'error',
+        errorMessage: err?.message,
+      }
+    }
+
+    return { state: 'missing' }
+  }
+
   const handleTrade = async () => {
     if (!amount || parseFloat(amount) <= 0) return
-
-    if (!hasValidDisclosure) {
-      setPendingTrade({
-        side,
-        amount: parseFloat(amount),
-        contracts: units,
-        price,
-      })
-      setShowRiskModal(true)
+    if (!marketId) {
+      toast.error('NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel identificar o mercado.')
       return
     }
 
-    executeTrade({
+    const tradeData = {
       side,
       amount: parseFloat(amount),
       contracts: units,
       price,
-    })
-  }
+    }
 
+    const acceptanceStatus = await resolveAcceptanceStatus()
+
+    if (acceptanceStatus.state === 'accepted') {
+      executeTrade(tradeData)
+      return
+    }
+
+    if (acceptanceStatus.state === 'missing') {
+      setPendingTrade(tradeData)
+      setShowRiskModal(true)
+      return
+    }
+
+    toast.error(
+      acceptanceStatus.errorMessage ||
+        'NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­vel verificar o termo de risco. Tente novamente.'
+    )
+  }
   const executeTrade = async (tradeData: any) => {
     setIsLoading(true)
     try {
@@ -108,20 +213,7 @@ export default function TradingPanel({
 
   const handleAcceptRisk = async () => {
     try {
-      await createDisclosureMutation.mutateAsync({
-        user_id: userId,
-        document_version: '1.0',
-        locale: 'pt-BR',
-        valid_until: addMonths(new Date(), 6).toISOString(),
-        answers_confirmed: true,
-        market_id: market.id,
-      })
-
-      setShowRiskModal(false)
-
-      if (pendingTrade) {
-        executeTrade(pendingTrade)
-      }
+      await acceptRiskMutation.mutateAsync()
     } catch (error) {
       console.error('Error accepting risk disclosure:', error)
     }
@@ -132,7 +224,40 @@ export default function TradingPanel({
     setPendingTrade(null)
   }
 
+  const handleDownloadAcceptance = async () => {
+    if (!hasAcceptedRisk) return
+    setIsDownloadingPdf(true)
+    try {
+      const { blob, filename } = await riskTermsClient.downloadAcceptance({
+        marketId,
+        acceptedAt: acceptance?.acceptedAt ?? null,
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename || 'termo-risco.pdf'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error: any) {
+      if (error?.status === 404) {
+        toast.error('Nenhum comprovante disponÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel para este mercado.')
+      } else {
+        const message = error?.message || 'NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel baixar o comprovante.'
+        toast.error(message)
+      }
+    } finally {
+      setIsDownloadingPdf(false)
+    }
+  }
+
   const quickAmounts = [10, 50, 100, 500]
+  const tradeButtonDisabled =
+    !amount || parseFloat(amount) <= 0 || parseFloat(amount) > userBalance || isLoading
+  const tradeButtonLabel = isLoading
+    ? 'Processando...'
+    : `Comprar ${side === 'yes' ? 'SIM' : 'NÃO'}`
 
   const cardOuterClass = isEmbedded ? '' : 'bg-white'
   const bodyClass = isEmbedded ? '' : 'p-0'
@@ -174,7 +299,7 @@ export default function TradingPanel({
       >
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <TrendingDown className="w-4 h-4 text-rose-600" />
+            <TrendingDown className="w-4 h-4 text-rose-500" />
             <span className={cn('text-sm font-semibold', side === 'no' ? 'text-rose-600' : 'text-slate-700')}>NÃO</span>
           </span>
           {!isEmbedded && <span className="text-xs text-slate-500">{Math.round(noPriceNum * 100)}%</span>}
@@ -252,13 +377,13 @@ export default function TradingPanel({
 
         <Button
           onClick={handleTrade}
-          disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > userBalance || isLoading}
+          disabled={tradeButtonDisabled}
           className={cn(
             'w-full h-12 text-base font-semibold transition-all',
             side === 'yes' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'
           )}
         >
-          {isLoading ? 'Processando...' : `Comprar ${side === 'yes' ? 'SIM' : 'NÃO'}`}
+          {tradeButtonLabel}
         </Button>
 
         <div className="flex items-start gap-2 mt-4 p-3 bg-amber-50 rounded-lg">
@@ -278,21 +403,25 @@ export default function TradingPanel({
         onAccept={handleAcceptRisk}
         onDecline={handleDeclineRisk}
         marketTitle={market.title}
+        termText={riskTerm?.text}
+        termVersion={riskTerm?.termVersion}
+        isLoadingTerm={isTermLoading}
+        loadError={riskTermErrorMessage}
+        onRetryFetch={refetchRiskTerm}
+        isSubmitting={acceptRiskMutation.isPending}
+        acceptanceInfo={
+          hasAcceptedRisk
+            ? {
+                acceptedAt: acceptanceDate ?? undefined,
+                termVersion: acceptanceVersion ?? undefined,
+              }
+            : undefined
+        }
+        onDownload={hasAcceptedRisk ? handleDownloadAcceptance : undefined}
+        isDownloading={isDownloadingPdf}
       />
 
       <div className="space-y-4">
-        {!isEmbedded && userId && !hasValidDisclosure && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-900 mb-1">Termo de Ciência Obrigatório</p>
-                <p className="text-xs text-amber-700">Antes de realizar sua primeira aposta, você precisará ler e aceitar o Termo de Ciência e Risco.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {tradeContent}
 
         {showRiskAssistant && (
@@ -302,3 +431,4 @@ export default function TradingPanel({
     </>
   )
 }
+

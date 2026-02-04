@@ -1,6 +1,6 @@
-# PredictX
+# Predizer
 
-**PredictX** é uma plataforma gamificada de pesquisa e previsão: você cria/participa de mercados sobre eventos futuros (preços, adoção, volume etc.), aloca um valor em cada palpite e acompanha desempenho e resultados em painéis analíticos.
+**Predizer** é uma plataforma gamificada de pesquisa e previsão: você cria/participa de mercados sobre eventos futuros (preços, adoção, volume etc.), aloca um valor em cada palpite e acompanha desempenho e resultados em painéis analíticos.
 
 > Projeto em modo **MVP/Demo**: as funcionalidades principais estão prontas para apresentação e evolução para backend real (API + banco) quando necessário.
 

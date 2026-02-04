@@ -1,10 +1,16 @@
-import React, { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import React, { useMemo, useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { AlertTriangle, ShieldAlert, Heart, TrendingDown } from 'lucide-react'
+import { ShieldAlert, Loader2, DownloadCloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -12,202 +18,501 @@ type Props = {
   onAccept: () => void
   onDecline: () => void
   marketTitle?: string
+  termText?: string
+  termVersion?: string
+  isLoadingTerm?: boolean
+  loadError?: string | null
+  onRetryFetch?: () => void
+  isSubmitting?: boolean
+  acceptanceInfo?: { acceptedAt?: string; termVersion?: string | null }
+  onDownload?: () => void
+  isDownloading?: boolean
 }
 
-export default function RiskDisclosureModal({ open, onAccept, onDecline }: Props) {
+export default function RiskDisclosureModal({
+  open,
+  onAccept,
+  onDecline,
+  marketTitle,
+  termText,
+  termVersion,
+  isLoadingTerm,
+  loadError,
+  onRetryFetch,
+  isSubmitting,
+  acceptanceInfo,
+  onDownload,
+  isDownloading,
+}: Props) {
   const [acceptances, setAcceptances] = useState({
     loss100: false,
     fees: false,
     notInvestment: false,
     emotional: false,
+    terms: false,
   })
-  const [confirmAnswer, setConfirmAnswer] = useState('')
-  const [showFull, setShowFull] = useState(false)
 
-  const allAccepted = Object.values(acceptances).every((v) => v)
-  const lower = confirmAnswer.toLowerCase()
-  const correctAnswer = lower.includes('100') || confirmAnswer === '100%'
+  const [confirmAnswer, setConfirmAnswer] = useState('')
+  const [blockedAttempt, setBlockedAttempt] = useState<string | null>(null)
+
+  const allAccepted = Object.values(acceptances).every(Boolean)
+
+  const requiredPhrase = 'posso perder 100% do valor investido'
+  const normalizedAnswer = useMemo(
+    () => confirmAnswer.trim().toLowerCase().replace(/\s+/g, ' '),
+    [confirmAnswer]
+  )
+  const correctAnswer = normalizedAnswer === requiredPhrase
+  const isAcceptDisabled =
+    !allAccepted ||
+    !correctAnswer ||
+    !!isSubmitting ||
+    !!isLoadingTerm ||
+    !!loadError
+
+  const acceptanceBadge = acceptanceInfo?.acceptedAt
+    ? (() => {
+        const parsed = new Date(acceptanceInfo.acceptedAt as string)
+        if (Number.isNaN(parsed.getTime())) return null
+        return `Aceito em ${parsed.toLocaleString('pt-BR')}`
+      })()
+    : null
 
   const handleAccept = () => {
-    if (allAccepted && correctAnswer) {
-      onAccept()
+    if (!isAcceptDisabled) onAccept()
+  }
+
+  const setAcceptance =
+    (key: keyof typeof acceptances) =>
+    (checked: boolean | 'indeterminate') =>
+      setAcceptances((prev) => ({ ...prev, [key]: !!checked }))
+
+  // Anti copy/paste (não é 100% “inescapável”, mas bloqueia o atalho padrão)
+  const block = (msg: string) => (e: any) => {
+    e.preventDefault?.()
+    setBlockedAttempt(msg)
+    window.setTimeout(() => setBlockedAttempt(null), 1800)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault()
+      setBlockedAttempt('Colar foi bloqueado — digite a frase manualmente.')
+      window.setTimeout(() => setBlockedAttempt(null), 1800)
+    }
+  }
+
+  const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const ne = (e.nativeEvent as any) || {}
+    const inputType: string = ne.inputType || ''
+    if (
+      inputType === 'insertFromPaste' ||
+      inputType === 'insertFromDrop' ||
+      inputType === 'insertFromYank'
+    ) {
+      ne.preventDefault?.()
+      setBlockedAttempt('Entrada por colagem/arrastar foi bloqueada — digite.')
+      window.setTimeout(() => setBlockedAttempt(null), 1800)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen?: boolean) => { if (!isOpen) onDecline() }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-              <ShieldAlert className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <DialogTitle className="text-xl">Termo de Ciência e Risco</DialogTitle>
-              <DialogDescription>Leia com atenção antes de prosseguir</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-6">
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-amber-900 mb-2">Atenção: Risco de Perda Total</p>
-                  <p className="text-sm text-amber-800">
-                    Esta operação é <strong>especulativa</strong>. Você pode <strong>perder 100%</strong> do valor que
-                    colocar nesta aposta. O valor alocado pode virar R$ 0,00.
-                  </p>
-                </div>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen?: boolean) => {
+        if (!isOpen) onDecline()
+      }}
+    >
+      {/* ✅ Layout: flex-col + overflow-hidden pra NÃO quebrar botões */}
+      <DialogContent className="w-[min(96vw,980px)] max-w-none max-h-[92vh] flex flex-col overflow-hidden p-0">
+        {/* HEADER FIXO */}
+        <div className="p-6 pb-4 border-b">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <ShieldAlert className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-xl">Termo de Ciência e Risco</DialogTitle>
+                <DialogDescription className="truncate">
+                  {marketTitle
+                    ? `Mercado: ${marketTitle}`
+                    : 'Leia com atenção antes de prosseguir'}
+                </DialogDescription>
+                {(termVersion || acceptanceBadge) && (
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                    {acceptanceBadge && (
+                      <span className="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+                        {acceptanceBadge}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
+          </DialogHeader>
+        </div>
 
-            <div className="space-y-4">
-              <Section
-                icon={TrendingDown}
-                iconColor="text-rose-600"
-                title="(1) Risco de perda total"
-                description="Eu entendo que esta operação é especulativa e que posso perder 100% do valor que eu colocar nesta aposta (o valor alocado pode virar R$ 0,00)."
-              />
-
-              <Section
-                icon={AlertTriangle}
-                iconColor="text-amber-600"
-                title="(2) Taxas e custos"
-                description="Eu entendo que o PredictX cobra taxas (taxa de depósito 7% e taxa de saque 10%) e que taxas reduzem ganhos e aumentam perdas na prática."
-              />
-
-              <Section
-                icon={ShieldAlert}
-                iconColor="text-blue-600"
-                title="(3) Não é poupança nem renda garantida"
-                description="Eu entendo que isto não é investimento garantido, não é recomendação financeira e não existe promessa de retorno. Devo operar apenas com valores que posso perder."
-              />
-
-              <Section
-                icon={Heart}
-                iconColor="text-purple-600"
-                title="(4) Responsabilidade emocional e risco de compulsão"
-                description="Eu reconheço que apostas podem causar danos emocionais e comportamentais, especialmente em situações de vulnerabilidade (ex.: estresse financeiro, luto, ansiedade). Fui alertado sobre sinais de possível transtorno do jogo: dificuldade de controlar frequência/intensidade, priorizar apostar acima de outras áreas da vida, continuar apesar de prejuízos."
-              />
-            </div>
-
-            {showFull && (
-              <div className="space-y-4 pt-4 border-t">
-                <Section
-                  icon={ShieldAlert}
-                  iconColor="text-emerald-600"
-                  title="(5) Ferramentas de proteção"
-                  description="Eu sei que devo usar ferramentas de proteção, como: limite de depósitos, limite de perdas, pausas (cooldown) e autoexclusão. Posso configurá-las no meu perfil."
-                />
-
-                <Section
-                  icon={Heart}
-                  iconColor="text-rose-600"
-                  title="(6) Ajuda e suporte"
-                  description="Se eu perceber perda de controle ou sofrimento, buscarei ajuda. O SUS/RAPS (CAPS e rede de saúde mental) é um caminho. O PredictX facilita autoexclusão caso necessário."
-                />
-
-                <div className="bg-slate-50 rounded-lg p-4">
-                  <p className="text-xs text-slate-600">
-                    <strong>Observação:</strong> Este termo segue princípios de divulgação de risco semelhantes aos usados em trading/derivativos e inclui avisos sobre danos relacionados a apostas. Versão do documento: 1.0 | Última atualização: Dezembro 2025
-                  </p>
+        {/* CORPO ROLÁVEL */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="h-[58vh]">
+            <div className="p-6 space-y-6 max-w-4xl mx-auto">
+              {/* TEXTO OFICIAL DO BACKEND */}
+              <div className="bg-white border rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  {onDownload && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onDownload}
+                      disabled={isDownloading}
+                      className="border-slate-200"
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <DownloadCloud className="w-4 h-4 mr-2" />
+                      )}
+                      Baixar PDF
+                    </Button>
+                  )}
                 </div>
+
+                {isLoadingTerm ? (
+                  <div className="space-y-2">
+                    <div className="h-3 bg-slate-100 rounded animate-pulse" />
+                    <div className="h-3 bg-slate-100 rounded animate-pulse w-11/12" />
+                    <div className="h-3 bg-slate-100 rounded animate-pulse w-9/12" />
+                  </div>
+                ) : loadError ? (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-3">
+                    <p className="font-medium">Não foi possível carregar o termo.</p>
+                    <p className="text-xs mb-2">{loadError}</p>
+                    {onRetryFetch && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onRetryFetch}
+                        className="px-0 text-amber-800 hover:text-amber-900"
+                      >
+                        Tentar novamente
+                      </Button>
+                    )}
+                  </div>
+                ) : termText ? (
+                  <ContractRenderer text={termText} />
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    Texto do termo não disponível.
+                  </p>
+                )}
               </div>
-            )}
 
-            {!showFull && (
-              <button onClick={() => setShowFull(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                + Ler termo completo
-              </button>
-            )}
-
-            <div className="space-y-3 pt-4 border-t">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <Checkbox
+              {/* CHECKBOXES */}
+              <div className="space-y-3 pt-4 border-t">
+                <CheckLine
                   checked={acceptances.loss100}
-                  onCheckedChange={(checked: boolean | 'indeterminate') => setAcceptances((prev) => ({ ...prev, loss100: !!checked }))}
-                  className="mt-1"
+                  onCheckedChange={setAcceptance('loss100')}
+                  label={
+                    <>
+                      Declaro que <strong>posso perder 100%</strong> do valor alocado
+                    </>
+                  }
                 />
-                <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                  <strong>Posso perder 100%</strong> do valor alocado nesta aposta
-                </span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <Checkbox
+                <CheckLine
                   checked={acceptances.fees}
-                  onCheckedChange={(checked: boolean | 'indeterminate') => setAcceptances((prev) => ({ ...prev, fees: !!checked }))}
-                  className="mt-1"
+                  onCheckedChange={setAcceptance('fees')}
+                  label={
+                    <>
+                      Entendo <strong>taxas e custos</strong> (7% depósito, 10% saque) e
+                      seu impacto no resultado
+                    </>
+                  }
                 />
-                <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                  Entendo as <strong>taxas e custos</strong> (7% depósito, 10% saque)
-                </span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <Checkbox
+                <CheckLine
                   checked={acceptances.notInvestment}
-                  onCheckedChange={(checked: boolean | 'indeterminate') => setAcceptances((prev) => ({ ...prev, notInvestment: !!checked }))}
-                  className="mt-1"
+                  onCheckedChange={setAcceptance('notInvestment')}
+                  label={
+                    <>
+                      Confirmo que opero com <strong>dinheiro que posso perder</strong> e
+                      sem promessa de retorno
+                    </>
+                  }
                 />
-                <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                  Estou apostando com <strong>dinheiro que posso perder</strong>
-                </span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <Checkbox
+                <CheckLine
                   checked={acceptances.emotional}
-                  onCheckedChange={(checked: boolean | 'indeterminate') => setAcceptances((prev) => ({ ...prev, emotional: !!checked }))}
-                  className="mt-1"
+                  onCheckedChange={setAcceptance('emotional')}
+                  label={
+                    <>
+                      Reconheço <strong>riscos emocionais</strong> e sinais de compulsão,
+                      e assumo responsabilidade
+                    </>
+                  }
                 />
-                <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                  Entendo os <strong>riscos emocionais</strong> e sinais de compulsão
+                <CheckLine
+                  checked={acceptances.terms}
+                  onCheckedChange={setAcceptance('terms')}
+                  label={
+                    <>
+                      Declaro que <strong>li e compreendi</strong> este termo e aceito
+                      prosseguir por minha conta e risco
+                    </>
+                  }
+                />
+              </div>
+
+              {/* CONFIRMAÇÃO ANTI-COLA */}
+              <div className="bg-blue-50 rounded-xl p-4 space-y-2">
+                <p className="text-sm font-medium text-blue-900">
+                  Confirmação obrigatória:
+                </p>
+                <p className="text-sm text-blue-800">
+                  Digite exatamente:{' '}
+                  <strong>&quot;posso perder 100% do valor investido&quot;</strong>
+                </p>
+
+                <Input
+                  placeholder="Digite a frase acima para confirmar"
+                  value={confirmAnswer}
+                  onChange={(e) => setConfirmAnswer(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBeforeInput={handleBeforeInput}
+                  onPaste={block}
+                  onDrop={block}
+                  onCopy={block}
+                  onCut={block}
+                  onContextMenu={block}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={cn('bg-white', correctAnswer && 'border-emerald-500')}
+                />
+
+                {blockedAttempt && <p className="text-xs text-rose-600">{blockedAttempt}</p>}
+
+                {confirmAnswer && !correctAnswer && !blockedAttempt && (
+                  <p className="text-xs text-rose-600">
+                    A frase precisa ser idêntica (mesmas palavras).
+                  </p>
+                )}
+              </div>
+
+              {/* Espaço final pra não “grudar” no rodapé */}
+              <div className="h-2" />
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* RODAPÉ FIXO (botões não quebram mais) */}
+        <div className="p-6 pt-4 border-t bg-white">
+          <div className="flex flex-row sm:flex-row gap-3 sm:gap-4">
+            <Button
+              variant="outline"
+              className="w-full sm:w-1/2 h-11"
+              onClick={onDecline}
+            >
+              Cancelar e definir limites antes
+            </Button>
+            <Button
+              onClick={handleAccept}
+              disabled={isAcceptDisabled}
+              className="w-full sm:w-1/2 bg-emerald-600 hover:bg-emerald-700 h-11"
+            >
+              {isSubmitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Registrando aceite...
                 </span>
-              </label>
-            </div>
-
-            <div className="bg-blue-50 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-blue-900">Pergunta de confirmação (anti-clique automático):</p>
-              <p className="text-sm text-blue-800">Se eu perder, posso perder <strong>quanto</strong> do valor desta aposta?</p>
-              <Input
-                placeholder="Digite a resposta..."
-                value={confirmAnswer}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmAnswer(e.target.value)}
-                className={cn('bg-white', correctAnswer && 'border-emerald-500')}
-              />
-              {confirmAnswer && !correctAnswer && (
-                <p className="text-xs text-rose-600">Dica: A resposta correta é "100%" ou "100"</p>
+              ) : (
+                'Aceito e desejo prosseguir'
               )}
-            </div>
+            </Button>
           </div>
-        </ScrollArea>
-
-        <div className="flex flex-col gap-3 pt-4 border-t">
-          <Button onClick={handleAccept} disabled={!allAccepted || !correctAnswer} className="w-full bg-emerald-600 hover:bg-emerald-700">
-            ✓ Aceito e desejo prosseguir
-          </Button>
-          <Button variant="outline" className="w-full" onClick={onDecline}>
-            Cancelar e definir limites antes
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
   )
 }
 
-function Section({ icon: Icon, iconColor, title, description }: { icon: any; iconColor?: string; title: string; description: string }) {
+function CheckLine({
+  checked,
+  onCheckedChange,
+  label,
+}: {
+  checked: boolean
+  onCheckedChange: (checked: boolean | 'indeterminate') => void
+  label: React.ReactNode
+}) {
   return (
-    <div className="flex items-start gap-3">
-      <div className={cn('w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0', iconColor)}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div>
-        <h4 className="text-sm font-semibold text-slate-900 mb-1">{title}</h4>
-        <p className="text-sm text-slate-600">{description}</p>
+    <label className="flex items-start gap-3 cursor-pointer group">
+      <Checkbox checked={checked} onCheckedChange={onCheckedChange} className="mt-1" />
+      <span className="text-sm text-slate-700 group-hover:text-slate-900 leading-relaxed">
+        {label}
+      </span>
+    </label>
+  )
+}
+
+/* ===========================
+   PDF-LIKE CONTRACT RENDERER
+   =========================== */
+
+function sanitizeContractText(input: string) {
+  if (!input) return ''
+
+  let s = input
+
+  // remove chars invisíveis (igual sua ideia no C#)
+  s = s.replace(/\u00AD/g, '') // soft hyphen
+  s = s.replace(/\u200B/g, '') // zero width space
+  s = s.replace(/\u200C/g, '')
+  s = s.replace(/\u200D/g, '')
+  s = s.replace(/\uFEFF/g, '')
+  s = s.replace(/\u00A0/g, ' ') // nbsp
+
+  // garante espaço após "1)" quando vem colado
+  s = s.replace(/(?<=\d\))(?=\S)/g, ' ')
+
+  // normaliza espaços/tabs
+  s = s.replace(/[ \t]+/g, ' ')
+
+  return s.trim()
+}
+
+type ContractLine =
+  | { kind: 'title'; text: string }
+  | { kind: 'section'; n: string; t: string }
+  | { kind: 'sub'; n: string; t: string }
+  | { kind: 'item'; n: string; t: string }
+  | { kind: 'p'; text: string }
+
+function parseContract(text: string): ContractLine[] {
+  const clean = sanitizeContractText(text)
+
+  const lines = clean
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0)
+
+  const reTitle = /^CONTRATO\b/i
+  const reSection = /^(?<n>\d+)\)\s*(?<t>.+)$/
+  const reSub = /^(?<n>\d+\.\d+)\)\s*(?<t>.+)$/
+  const reItem = /^(?<n>\d+\.\d+\.\d+)\)\s*(?<t>.+)$/
+
+  const out: ContractLine[] = []
+
+  for (const line of lines) {
+    if (reTitle.test(line)) {
+      out.push({ kind: 'title', text: line })
+      continue
+    }
+
+    const mSec = line.match(reSection)
+    if (mSec?.groups?.n && mSec?.groups?.t) {
+      out.push({ kind: 'section', n: mSec.groups.n, t: mSec.groups.t })
+      continue
+    }
+
+    const mItem = line.match(reItem)
+    if (mItem?.groups?.n && mItem?.groups?.t) {
+      out.push({ kind: 'item', n: mItem.groups.n, t: mItem.groups.t })
+      continue
+    }
+
+    const mSub = line.match(reSub)
+    if (mSub?.groups?.n && mSub?.groups?.t) {
+      out.push({ kind: 'sub', n: mSub.groups.n, t: mSub.groups.t })
+      continue
+    }
+
+    out.push({ kind: 'p', text: line })
+  }
+
+  return out
+}
+
+function ContractRenderer({ text }: { text: string }) {
+  const blocks = useMemo(() => parseContract(text), [text])
+
+  return (
+    <div className="text-slate-900" style={{ fontFamily: '"Arial", sans-serif' }}>
+      {/* “papel” */}
+      <div className="px-6 py-6 ">
+        {/* tipografia de documento */}
+        <div>
+          {blocks.map((b, idx) => {
+            if (b.kind === 'title') {
+              return (
+                <div key={idx} className="text-center font-bold text-[16px] tracking-wide mb-4">
+                  {b.text}
+                </div>
+              )
+            }
+
+            if (b.kind === 'section') {
+              return (
+                <div key={idx} className="mt-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 text-right font-bold text-[14px] leading-6">
+                      {b.n})
+                    </div>
+                    <div className="flex-1 font-bold text-[14px] leading-6">
+                      {b.t}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            if (b.kind === 'sub') {
+              return (
+                <div key={idx} className="mt-2 pl-2">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 text-right font-semibold text-[13px] leading-6">
+                      {b.n})
+                    </div>
+                    <div
+                      className="flex-1 text-[13.5px] leading-6 text-slate-800"
+                      style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                    >
+                      {b.t}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            if (b.kind === 'item') {
+              return (
+                <div key={idx} className="mt-2 pl-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-14 text-right font-semibold text-[13px] leading-6">
+                      {b.n})
+                    </div>
+                    <div
+                      className="flex-1 text-[13.5px] leading-6 text-slate-800"
+                      style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                    >
+                      {b.t}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            // paragraph
+            return (
+              <div
+                key={idx}
+                className="mt-2 text-[13.5px] leading-6 text-slate-800"
+                style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+              >
+                {b.text}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -6,19 +6,23 @@ export function normalizeMarket(raw: any) {
 
   return {
     ...raw,
+    category: typeof raw.category === "string" ? raw.category.toUpperCase() : raw.category,
+    featured: Boolean(raw.featured ?? raw.isFeatured ?? false),
     // keep original camelCase too but provide snake_case for older UI
     yes_price: yesPrice,
     no_price: noPrice,
     yesPrice: yesPrice,
     noPrice: noPrice,
     closing_date: raw.closingDate ?? raw.closing_date ?? null,
-    created_date: raw.createdDate ?? raw.created_date ?? null,
+    created_date: raw.createdAt ?? raw.createdDate ?? raw.created_date ?? null,
     closingDate: raw.closingDate ?? raw.closing_date ?? null,
-    createdDate: raw.createdDate ?? raw.created_date ?? null,
+    createdDate: raw.createdAt ?? raw.createdDate ?? raw.created_date ?? null,
     volume_total: Number(raw.volumeTotal ?? raw.volume_total ?? 0),
     volumeTotal: Number(raw.volumeTotal ?? raw.volume_total ?? 0),
     probability_yes: Number(raw.probabilityYes ?? raw.probability_yes ?? (yesPrice * 100)),
     probabilityYes: Number(raw.probabilityYes ?? raw.probability_yes ?? (yesPrice * 100)),
+    resolution_source: raw.resolutionSource ?? raw.resolution_source ?? null,
+    resolutionSource: raw.resolutionSource ?? raw.resolution_source ?? null,
   } as any;
 }
 

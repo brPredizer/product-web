@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { mockApi as mockApiImport } from '@/app/api/mockClient';
 import {
@@ -16,6 +16,7 @@ const mockApi: any = mockApiImport as any;
 
 export default function NavigationTracker(): null {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { isAuthenticated, isLoadingAuth } = useAuth() as { isAuthenticated?: boolean; isLoadingAuth?: boolean };
   const { Pages, mainPage } = pagesConfig as any;
@@ -49,10 +50,12 @@ export default function NavigationTracker(): null {
   useEffect(() => {
     if (isLoadingAuth) return;
     if (!isAuthenticated && !isPublicRoute(pathname)) {
+      const query = searchParams?.toString();
+      const nextPath = query ? `${pathname}?${query}` : pathname;
       // Replace navigation to sign-in when user is not authenticated
-      router.replace(ROUTES.signIn);
+      router.replace(`${ROUTES.signIn}?next=${encodeURIComponent(nextPath ?? '/')}`);
     }
-  }, [pathname, isAuthenticated, isLoadingAuth, router]);
+  }, [pathname, searchParams, isAuthenticated, isLoadingAuth, router]);
 
   return null;
 }

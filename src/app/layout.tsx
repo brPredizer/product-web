@@ -5,7 +5,7 @@ import MercadoPagoSecurityScripts from '@/components/MercadoPagoSecurityScripts'
 import React, { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'PredictX',
+  title: 'Predizer',
   description: 'Mercados preditivos transparentes construídos em Next.js',
 };
 

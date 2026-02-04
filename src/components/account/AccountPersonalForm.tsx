@@ -113,7 +113,7 @@ export default function AccountPersonalForm({
   username,
   setUsername,
   email,
-  setEmail,
+  setEmail: _setEmail,
   cpf,
   setCpf,
   phoneNumber,
@@ -302,7 +302,12 @@ export default function AccountPersonalForm({
 
         <div>
           <label className="text-sm text-slate-700">E-mail</label>
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
+          <Input
+            value={email}
+            readOnly
+            className="mt-1 bg-slate-50 cursor-not-allowed text-slate-600"
+            title="E-mail é somente leitura"
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

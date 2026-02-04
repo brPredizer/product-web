@@ -25,6 +25,42 @@ type LedgerListResponse = {
   nextCursor: string | null;
 };
 
+type ReceiptMarket = {
+  id?: string;
+  title?: string;
+  slug?: string | null;
+} | null;
+
+type ReceiptPayment = {
+  method?: string | null;
+  externalPaymentId?: string | null;
+  checkoutUrl?: string | null;
+  expiresAt?: string | null;
+  qrCodeBase64?: string | null;
+} | null;
+
+type Receipt = {
+  id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  provider?: string | null;
+  providerPaymentId?: string | null;
+  createdAt?: string;
+  description?: string | null;
+  contracts?: number | null;
+  unitPrice?: number | null;
+  market?: ReceiptMarket;
+  payment?: ReceiptPayment;
+  referenceType?: string;
+  referenceId?: string;
+};
+
+type ReceiptListResponse = {
+  items: Receipt[];
+  nextCursor: string | null;
+};
+
 type AmountRequest = {
   amount: string;
 };
@@ -219,6 +255,137 @@ const rejectWithdrawal = async (withdrawalId: string, notes: string) => {
   return { ...data, amount: parseDecimalMoney((data as any).amount) };
 };
 
+const getReceipts = async ({
+  cursor,
+  limit
+}: {
+  cursor?: string | null;
+  limit?: number;
+} = {}): Promise<ReceiptListResponse> => {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  const raw = await requestWithAuth<any>(
+    query ? `/wallet/receipts?${query}` : '/wallet/receipts'
+  );
+
+  const itemsSource =
+    raw?.items ||
+    raw?.entries ||
+    raw?.data?.items ||
+    raw?.data?.entries ||
+    [];
+
+  const normalizeMarket = (market: any): ReceiptMarket => {
+    if (!market || typeof market !== 'object') return null;
+    return {
+      id: market?.id ?? market?.Id ?? undefined,
+      title: market?.title ?? market?.Title ?? market?.name ?? null,
+      slug: market?.slug ?? market?.Slug ?? null
+    };
+  };
+
+  const normalizePayment = (payment: any): ReceiptPayment => {
+    if (!payment || typeof payment !== 'object') return null;
+    return {
+      method: payment?.method ?? payment?.Method ?? null,
+      externalPaymentId:
+        payment?.externalPaymentId ??
+        payment?.ExternalPaymentId ??
+        payment?.providerPaymentId ??
+        payment?.ProviderPaymentId ??
+        null,
+      checkoutUrl: payment?.checkoutUrl ?? payment?.CheckoutUrl ?? null,
+      expiresAt: payment?.expiresAt ?? payment?.ExpiresAt ?? null,
+      qrCodeBase64: payment?.qrCodeBase64 ?? payment?.QrCodeBase64 ?? null
+    };
+  };
+
+  const normalize = (item: any): Receipt => ({
+    id: item?.id ?? item?.Id ?? '',
+    type: (item?.type ?? item?.Type ?? '').toString().toLowerCase(),
+    amount: parseDecimalMoney(item?.amount ?? item?.Amount),
+    currency: item?.currency ?? item?.Currency ?? 'BRL',
+    referenceType: item?.referenceType ?? item?.ReferenceType ?? undefined,
+    referenceId: item?.referenceId ?? item?.ReferenceId ?? undefined,
+    provider: item?.provider ?? item?.Provider ?? null,
+    providerPaymentId: item?.providerPaymentId ?? item?.ProviderPaymentId ?? null,
+    createdAt: item?.createdAt ?? item?.CreatedAt ?? undefined,
+    description: item?.description ?? item?.Description ?? null,
+    contracts: item?.contracts ?? item?.Contracts ?? null,
+    unitPrice:
+      item?.unitPrice !== undefined && item?.unitPrice !== null
+        ? parseDecimalMoney(item?.unitPrice ?? item?.UnitPrice)
+        : null,
+    market: normalizeMarket(item?.market ?? item?.Market ?? null),
+    payment: normalizePayment(item?.payment ?? item?.Payment ?? null)
+  });
+
+  return {
+    items: Array.isArray(itemsSource) ? itemsSource.map(normalize) : [],
+    nextCursor:
+      raw?.nextCursor ??
+      raw?.meta?.nextCursor ??
+      raw?.data?.nextCursor ??
+      raw?.data?.meta?.nextCursor ??
+      null
+  };
+};
+
+const getReceipt = async (receiptId: string): Promise<Receipt | null> => {
+  if (!receiptId) return null;
+  const raw = await requestWithAuth<any>(`/wallet/receipts/${encodeURIComponent(receiptId)}`);
+  const data = raw?.data ?? raw;
+
+  const normalizeMarket = (market: any): ReceiptMarket => {
+    if (!market || typeof market !== 'object') return null;
+    return {
+      id: market?.id ?? market?.Id ?? undefined,
+      title: market?.title ?? market?.Title ?? market?.name ?? null,
+      slug: market?.slug ?? market?.Slug ?? null
+    };
+  };
+
+  const normalizePayment = (payment: any): ReceiptPayment => {
+    if (!payment || typeof payment !== 'object') return null;
+    return {
+      method: payment?.method ?? payment?.Method ?? null,
+      externalPaymentId:
+        payment?.externalPaymentId ??
+        payment?.ExternalPaymentId ??
+        payment?.providerPaymentId ??
+        payment?.ProviderPaymentId ??
+        null,
+      checkoutUrl: payment?.checkoutUrl ?? payment?.CheckoutUrl ?? null,
+      expiresAt: payment?.expiresAt ?? payment?.ExpiresAt ?? null,
+      qrCodeBase64: payment?.qrCodeBase64 ?? payment?.QrCodeBase64 ?? null
+    };
+  };
+
+  const normalize = (item: any): Receipt => ({
+    id: item?.id ?? item?.Id ?? receiptId,
+    type: (item?.type ?? item?.Type ?? '').toString().toLowerCase(),
+    amount: parseDecimalMoney(item?.amount ?? item?.Amount),
+    currency: item?.currency ?? item?.Currency ?? 'BRL',
+    referenceType: item?.referenceType ?? item?.ReferenceType ?? undefined,
+    referenceId: item?.referenceId ?? item?.ReferenceId ?? undefined,
+    provider: item?.provider ?? item?.Provider ?? null,
+    providerPaymentId: item?.providerPaymentId ?? item?.ProviderPaymentId ?? null,
+    createdAt: item?.createdAt ?? item?.CreatedAt ?? undefined,
+    description: item?.description ?? item?.Description ?? null,
+    contracts: item?.contracts ?? item?.Contracts ?? null,
+    unitPrice:
+      item?.unitPrice !== undefined && item?.unitPrice !== null
+        ? parseDecimalMoney(item?.unitPrice ?? item?.UnitPrice)
+        : null,
+    market: normalizeMarket(item?.market ?? item?.Market ?? null),
+    payment: normalizePayment(item?.payment ?? item?.Payment ?? null)
+  });
+
+  return normalize(data);
+};
+
 export const walletClient = {
   getBalances,
   getLedger,
@@ -227,6 +394,8 @@ export const walletClient = {
   createWithdrawal,
   getWithdrawals,
   approveWithdrawal,
-  rejectWithdrawal
+  rejectWithdrawal,
+  getReceipts,
+  getReceipt
 };
 

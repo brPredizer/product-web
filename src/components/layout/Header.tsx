@@ -1,7 +1,8 @@
 import React from 'react'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { createPageUrl } from '@/routes'
-import { isAdminL1 } from '@/app/api/api'
+import { isAdminL1, isAdminL2 } from '@/app/api/api'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard,
@@ -29,9 +30,9 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, page: 'Home' },
   { name: 'Explorar', icon: Compass, page: 'Explore' },
+  { name: 'Aprender', icon: GraduationCap, page: 'Learn' },
   { name: 'Portfólio', icon: Briefcase, page: 'Portfolio' },
   { name: 'Carteira', icon: Wallet, page: 'Wallet' },
-  { name: 'Aprender', icon: GraduationCap, page: 'Learn' },
 ]
 
 type UserLike = any
@@ -46,6 +47,13 @@ type HeaderProps = {
 export default function Header({ currentPage, user, walletAvailableBalance = 0, onLogout }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
   const [avatarFailed, setAvatarFailed] = React.useState(false)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const searchQuery = searchParams?.toString()
+  const nextPath = searchQuery ? `${pathname}?${searchQuery}` : pathname
+  const signInHref = nextPath
+    ? `${createPageUrl('SignIn')}?next=${encodeURIComponent(nextPath)}`
+    : createPageUrl('SignIn')
 
   const visibleNavItems = React.useMemo(() => {
     if (user) return navItems
@@ -69,7 +77,7 @@ export default function Header({ currentPage, user, walletAvailableBalance = 0, 
             <div className="w-8 h-8 bg-emerald-600 rounded flex items-center justify-center">
               <span className="text-white font-bold text-lg">P</span>
             </div>
-            <span className="text-xl font-bold text-slate-900">Predict<span className="text-emerald-600">X</span></span>
+            <span className="text-xl font-bold text-slate-900">Pre<span className="text-emerald-600">dizer</span></span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -141,12 +149,14 @@ export default function Header({ currentPage, user, walletAvailableBalance = 0, 
                     {isAdminL1(user) && (
                       <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={createPageUrl('CreateMarket')} className="cursor-pointer text-purple-700">
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Criar Mercado
-                          </Link>
-                        </DropdownMenuItem>
+                        {isAdminL2(user) && (
+                          <DropdownMenuItem asChild>
+                            <Link href={createPageUrl('CreateMarket')} className="cursor-pointer text-purple-700">
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Criar Mercado
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem asChild>
                           <Link href={createPageUrl('Admin')} className="cursor-pointer text-emerald-600">
                             <Shield className="w-4 h-4 mr-2" />
@@ -165,7 +175,7 @@ export default function Header({ currentPage, user, walletAvailableBalance = 0, 
               </>
             ) : (
               <div className="hidden md:flex items-center gap-2">
-                <Link href={createPageUrl('SignIn')}>
+                <Link href={signInHref}>
                   <Button className="bg-emerald-600 hover:bg-emerald-700">Entrar</Button>
                 </Link>
                 <Link href={createPageUrl('Signup')}>
@@ -207,7 +217,7 @@ export default function Header({ currentPage, user, walletAvailableBalance = 0, 
                 <Link href={createPageUrl('Signup')} onClick={() => setMobileMenuOpen(false)} className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold border border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 transition-colors">
                   Criar conta
                 </Link>
-                <Link href={createPageUrl('SignIn')} onClick={() => setMobileMenuOpen(false)} className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                <Link href={signInHref} onClick={() => setMobileMenuOpen(false)} className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
                   Entrar
                 </Link>
               </div>
