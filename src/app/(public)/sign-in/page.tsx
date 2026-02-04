@@ -56,6 +56,13 @@ function SignInPageContent(): JSX.Element {
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
     '398416516666-buge59kr35irh3mkia29hhotai611ol1.apps.googleusercontent.com';
 
+  useEffect(() => {
+    // If the script was already loaded earlier in the session, mark as ready immediately.
+    if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
+      setGoogleReady(true);
+    }
+  }, []);
+
   const features = useMemo(
     () => [
       {
