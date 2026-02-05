@@ -168,7 +168,7 @@ function SignInPageContent(): JSX.Element {
         const session = authClient.getSession();
         if (!session?.user) {
           console.debug('[auth] googleSignIn: no session after cookie attempt; not retrying automatically');
-          setError('Não foi possível autenticar via cookie. Verifique DevTools → Network/Response/Issues ou tente o fluxo de token explicitamente.');
+          setError('Não foi possível autenticar com o Google. Tente novamente.');
           return;
         }
 
@@ -275,7 +275,7 @@ function SignInPageContent(): JSX.Element {
 
   return (
     <>
-      <div className="relative min-h-[80vh] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-12">
+      <div className="relative min-h-[80vh] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-16">
       <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
       <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
       <div
@@ -291,7 +291,7 @@ function SignInPageContent(): JSX.Element {
         <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
           <div className="grid grid-cols-1 md:grid-cols-2 items-stretch">
             {/* Lado esquerdo */}
-            <div className="p-8 sm:p-10 bg-white/75">
+            <div className="hidden md:block p-8 sm:p-10 bg-white/75">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white font-bold">
                   P

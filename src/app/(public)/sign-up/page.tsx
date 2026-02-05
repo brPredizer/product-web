@@ -200,7 +200,7 @@ function SignupPageContent(): JSX.Element {
   }
 
   return (
-    <div className="relative min-h-[90vh] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-start justify-center px-4 py-12">
+    <div className="relative min-h-[90vh] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-12">
       <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
       <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
       <div
@@ -214,7 +214,7 @@ function SignupPageContent(): JSX.Element {
       <div className="relative mx-auto max-w-6xl w-full">
         <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
           <div className="grid grid-cols-1 md:grid-cols-2 items-stretch">
-            <div className="p-8 sm:py-6 px-10 md:border-r md:border-slate-200/60 order-2 md:order-1 bg-white">
+            <div className="p-6 sm:p-8 md:p-10 md:border-r md:border-slate-200/60 order-2 md:order-1 bg-white">
               <div className="flex flex-col items-center text-center gap-3">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Criar conta</h2>
@@ -279,7 +279,7 @@ function SignupPageContent(): JSX.Element {
               </form>
             </div>
 
-            <div className="p-8 sm:p-10 bg-white/75 order-1 md:order-2">
+            <div className="hidden md:block p-8 sm:p-10 bg-white/75 order-1 md:order-2">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white font-bold">P</div>
                 <div className="leading-tight">
