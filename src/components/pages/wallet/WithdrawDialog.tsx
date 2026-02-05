@@ -34,6 +34,7 @@ function WithdrawDialog({ open, onOpenChange, refreshUser, userId }: WithdrawDia
       toast.success("Saque solicitado! Aguarde aprovação do administrador.");
       queryClient.invalidateQueries({ queryKey: ["wallet-balances", userId] });
       queryClient.invalidateQueries({ queryKey: ["wallet-ledger", userId] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-receipts", userId] });
       refreshUser?.();
       onOpenChange(false);
       setWithdrawAmountStr("");
@@ -82,3 +83,4 @@ function WithdrawDialog({ open, onOpenChange, refreshUser, userId }: WithdrawDia
 }
 
 export default WithdrawDialog;
+

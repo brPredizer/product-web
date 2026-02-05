@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Layout from '@/components/layout/AppLayout';
 import { authClient } from '@/app/api/auth';
+import { useAuth } from '@/context/AuthContext';
+import { createPageUrl } from '@/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -33,6 +36,9 @@ function FeatureItem({ icon: Icon, title, description }: { icon: any; title: str
 }
 
 function SignupPageContent(): JSX.Element {
+  const router = useRouter();
+  const { isAuthenticated, isLoadingAuth } = useAuth();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +49,13 @@ function SignupPageContent(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    if (isAuthenticated) {
+      router.replace(createPageUrl('Home'));
+    }
+  }, [isAuthenticated, isLoadingAuth, router]);
 
   const highlights = useMemo(
     () => [
@@ -166,6 +179,22 @@ function SignupPageContent(): JSX.Element {
       setLoading(false);
     }
   };
+
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">
+        Verificando sessÃ£o...
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">
+        Redirecionando...
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

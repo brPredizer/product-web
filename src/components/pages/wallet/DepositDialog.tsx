@@ -147,6 +147,7 @@ function DepositDialog({ open, onOpenChange, user, refreshUser, onPixReady }: De
       onPixReady({ ...normalized, intent: data?.intent, amount: depositAmount });
       toast.success("PIX gerado.");
 
+      queryClient.invalidateQueries({ queryKey: ["wallet-receipts", user?.id] });
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -224,6 +225,7 @@ function DepositDialog({ open, onOpenChange, user, refreshUser, onPixReady }: De
         toast.success("Pagamento aprovado. Atualizando saldo...");
         queryClient.invalidateQueries({ queryKey: ["wallet-balances", user?.id] });
         queryClient.invalidateQueries({ queryKey: ["wallet-ledger", user?.id] });
+        queryClient.invalidateQueries({ queryKey: ["wallet-receipts", user?.id] });
         refreshUser?.();
         onOpenChange(false);
         return;

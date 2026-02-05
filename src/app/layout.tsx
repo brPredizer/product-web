@@ -7,6 +7,9 @@ import React, { ReactNode } from 'react';
 export const metadata = {
   title: 'Predizer',
   description: 'Mercados preditivos transparentes construídos em Next.js',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 interface RootLayoutProps {
@@ -25,3 +28,4 @@ export default function RootLayout({ children }: RootLayoutProps) {
     </html>
   );
 }
+

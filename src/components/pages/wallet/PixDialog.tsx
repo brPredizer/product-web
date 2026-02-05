@@ -145,6 +145,7 @@ function PixDialog({ open, pixData, onClose, setPixData, refreshUser, userId }: 
 
       queryClient.invalidateQueries({ queryKey: ["wallet-balances", userId] });
       queryClient.invalidateQueries({ queryKey: ["wallet-ledger", userId] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-receipts", userId] });
       refreshUser?.();
 
       closePixModal();

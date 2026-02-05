@@ -19,7 +19,6 @@ import {
   RECEIPT_TYPE_LABELS,
   shortReceiptId,
 } from "./helpers";
-import { cn } from "@/lib/utils";
 
 interface ReceiptModalProps {
   open: boolean;
@@ -54,7 +53,6 @@ function ReceiptModal({ open, receiptId, onOpenChange }: ReceiptModalProps) {
   const market = receipt?.market || null;
   const payment = receipt?.payment || null;
   const isExpired = payment?.expiresAt ? new Date(payment.expiresAt).getTime() < Date.now() : false;
-  const qrImage = payment?.qrCodeBase64 ? `data:image/png;base64,${payment.qrCodeBase64}` : null;
 
   const handlePrint = () => {
     if (typeof window === "undefined") return;
@@ -220,21 +218,6 @@ function ReceiptModal({ open, receiptId, onOpenChange }: ReceiptModalProps) {
                     </p>
                   ) : null}
 
-                  {qrImage ? (
-                    <div className="mt-3 text-center space-y-1">
-                      <img
-                        src={qrImage}
-                        alt="QR Code"
-                        className={cn(
-                          "mx-auto w-48 h-48 object-contain border rounded-lg",
-                          isExpired && "opacity-60"
-                        )}
-                      />
-                      <p className="text-xs text-slate-500">
-                        {isExpired ? "Expirado" : "Escaneie para pagar"}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
 

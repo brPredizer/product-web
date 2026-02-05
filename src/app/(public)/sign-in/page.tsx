@@ -63,6 +63,13 @@ function SignInPageContent(): JSX.Element {
     }
   }, []);
 
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    if (isAuthenticated) {
+      router.replace(createPageUrl('Home'));
+    }
+  }, [isAuthenticated, isLoadingAuth, router]);
+
   const features = useMemo(
     () => [
       {
@@ -191,10 +198,6 @@ function SignInPageContent(): JSX.Element {
   );
 
   useEffect(() => {
-    if (!isLoadingAuth && isAuthenticated) {
-      router.replace(createPageUrl('Home'));
-      return;
-    }
     if (!googleReady || googleInitializedRef.current) return;
     if (!googleButtonRef.current || typeof window === 'undefined') return;
     if (!(window as any).google?.accounts?.id) return;
@@ -272,6 +275,22 @@ function SignInPageContent(): JSX.Element {
       setLoading(false);
     }
   };
+
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">
+        Verificando sessÃ£o...
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">
+        Redirecionando...
+      </div>
+    );
+  }
 
   return (
     <>
