@@ -41,6 +41,8 @@ import {
   Loader2,
   Download,
   X,
+  QrCode,
+  Copy,
 } from "lucide-react";
 import StatsCard from "@/components/ui/StatsCard";
 import { cn } from "@/lib/utils";
@@ -99,7 +101,6 @@ const normalizePixResponse = (pix: Record<string, any> | null) => {
 };
 
 const onlyDigits = (value: unknown) => String(value || "").replace(/\D/g, "");
-
 const inferDocumentType = (digits: string) => (digits.length > 11 ? "CNPJ" : "CPF");
 
 const normalizePaymentMethodId = (value: string) => {
@@ -174,6 +175,13 @@ function formatExpiresAtLabel(expiresAt: any) {
   return format(d, "dd/MM, HH:mm", { locale: ptBR });
 }
 
+function formatSecs(s: number | null) {
+  if (s == null) return "--:--";
+  const mm = Math.floor(s / 60).toString().padStart(2, "0");
+  const ss = Math.floor(s % 60).toString().padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
 const formatCurrencyValue = (value: number, currency: string) => {
   const curr = String(currency || "BRL").toUpperCase();
   try {
@@ -246,6 +254,25 @@ const mapStatus = (s: any) => {
       return String(s || "");
   }
 };
+
+// Scroll invisível (mantém scroll, mas sem a barra feia)
+const InvisibleScrollArea = React.forwardRef<
+  HTMLDivElement,
+  { className?: string; children: React.ReactNode }
+>(({ className, children }, ref) => {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+});
+InvisibleScrollArea.displayName = "InvisibleScrollArea";
 
 function TransactionRow({
   transaction,
@@ -351,9 +378,7 @@ function TransactionRow({
       </div>
 
       <div className="text-right">
-        <p className={cn("font-semibold", amountTone)}>
-          {amountFormatted}
-        </p>
+        <p className={cn("font-semibold", amountTone)}>{amountFormatted}</p>
 
         {transaction.statusLabel && (
           <Badge className={`${transaction.statusTone || "bg-slate-100 text-slate-700"} mt-1`}>
@@ -625,12 +650,10 @@ function ReceiptModal({
             </div>
           )}
         </div>
-
       </DialogContent>
     </Dialog>
   );
 }
-
 
 /**
  * =============================
@@ -674,11 +697,17 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
 
   const depositAmount = useMemo(() => toNumberSafe(depositAmountStr), [depositAmountStr]);
   const depositFee = useMemo(() => depositAmount * DEPOSIT_FEE, [depositAmount]);
-  const depositNet = useMemo(() => Math.max(0, depositAmount - depositFee), [depositAmount, depositFee]);
+  const depositNet = useMemo(
+    () => Math.max(0, depositAmount - depositFee),
+    [depositAmount, depositFee]
+  );
 
   const withdrawAmount = useMemo(() => toNumberSafe(withdrawAmountStr), [withdrawAmountStr]);
   const withdrawFee = useMemo(() => withdrawAmount * WITHDRAWAL_FEE, [withdrawAmount]);
-  const withdrawNet = useMemo(() => Math.max(0, withdrawAmount - withdrawFee), [withdrawAmount, withdrawFee]);
+  const withdrawNet = useMemo(
+    () => Math.max(0, withdrawAmount - withdrawFee),
+    [withdrawAmount, withdrawFee]
+  );
 
   const balancesQuery = useQuery({
     queryKey: ["wallet-balances", user?.id],
@@ -768,6 +797,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
       return type.includes("CARD") || Boolean(m?.cardLast4 || m?.mpCardId || m?.mpPaymentMethodId);
     });
   }, [paymentMethodsQuery.data]);
+
   const usableCardMethods = useMemo(
     () => cardMethods.filter((method: any) => Boolean(resolveMpCardId(method))),
     [cardMethods]
@@ -791,6 +821,14 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
       setDepositMethod("PIX");
     }
   }, [depositMethod, usableCardMethods.length]);
+
+  const selectedCard = useMemo(
+    () =>
+      usableCardMethods.find(
+        (method: any) => String(resolveMpCardId(method) || "") === String(selectedCardId || "")
+      ),
+    [usableCardMethods, selectedCardId]
+  );
 
   const isLoading = balancesQuery.isLoading || ledgerQuery.isLoading || receiptsQuery.isLoading;
 
@@ -1051,7 +1089,9 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
 
     if (normalized === "expired" || statusDetail === "expired") {
       toast.info("PIX expirado. Gere um novo pagamento.");
-      setPixData((prev: any) => (prev ? { ...prev, status: "expired", qrCode: null, qrBase64: null } : prev));
+      setPixData((prev: any) =>
+        prev ? { ...prev, status: "expired", qrCode: null, qrBase64: null } : prev
+      );
       setQrImage(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1105,6 +1145,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     };
   }, [pixData?.paymentId, pixData?.qrBase64, pixData?.qrCode]);
 
+  // Rola até o final quando abrir o modal PIX
   useEffect(() => {
     if (!pixOpen) return;
     const el = pixScrollRef.current;
@@ -1136,6 +1177,10 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     );
   }
 
+  const pixAmount = Number(pixData?.amount ?? depositAmount) || 0;
+  const pixFee = pixAmount * DEPOSIT_FEE;
+  const pixNet = Math.max(0, pixAmount - pixFee);
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1150,9 +1195,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div>
               <p className="text-slate-400 text-sm mb-1">Saldo Disponível</p>
-              <p className="text-4xl font-bold">
-                {formatCurrencyValue(availableBalance, "BRL")}
-              </p>
+              <p className="text-4xl font-bold">{formatCurrencyValue(availableBalance, "BRL")}</p>
             </div>
 
             <div className="flex gap-3">
@@ -1243,50 +1286,121 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
         </div>
       </div>
 
-      {/* ===== MODAL DEPÓSITO (simples) ===== */}
-      <Dialog open={depositSetupOpen} onOpenChange={setDepositSetupOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Depositar</DialogTitle>
-            <DialogDescription>Escolha o método e informe o valor.</DialogDescription>
-          </DialogHeader>
+      {/* ===== MODAL DEPÓSITO (EXATAMENTE do código de cima: PIX + Cartão) ===== */}
+      <Dialog open={depositSetupOpen} onOpenChange={(v) => setDepositSetupOpen(v)}>
+        <DialogContent className="w-[min(88vw,720px)] max-h-[92vh] overflow-hidden p-0 focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
+          <div className="border-b border-slate-100 p-5">
+            <DialogHeader>
+              <DialogTitle>Depositar</DialogTitle>
+              <DialogDescription>Informe o valor e escolha o método.</DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-700">Valor</p>
+          <InvisibleScrollArea className="max-h-[calc(92vh-72px-20px)] pt-1 pb-5 px-5 space-y-5">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                Valor do depósito
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                  R$
+                </span>
                 <Input
                   value={depositAmountStr}
-                  onChange={(e) => setDepositAmountStr(clampMoneyInput(e.target.value))}
-                  placeholder="Ex: 150.00"
+                  onChange={(e: any) => setDepositAmountStr(clampMoneyInput(e.target.value))}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  className="pl-10 h-12 text-lg"
                 />
-                <p className="text-xs text-slate-500">
-                  Taxa: {formatCurrencyValue(depositFee, "BRL")} • Líquido:{" "}
-                  {formatCurrencyValue(depositNet, "BRL")}
-                </p>
               </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-700">Método</p>
-                <Select value={depositMethod} onValueChange={(v) => setDepositMethod(v as DepositMethod)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PIX">PIX</SelectItem>
-                    <SelectItem value="CARD" disabled={usableCardMethods.length === 0}>
-                      Cartão
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {depositMethod === "CARD" && usableCardMethods.length === 0 ? (
-                  <p className="text-xs text-rose-600">Você não tem cartão salvo.</p>
-                ) : null}
-              </div>
+              <p className="text-xs text-slate-500 mt-2">Mínimo: R$ 0,01</p>
             </div>
 
+            {depositAmount > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Valor</span>
+                  <span className="font-medium">R$ {depositAmount.toFixed(2)}</span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">Taxa (2,5%)</span>
+                    <TooltipProvider delayDuration={120}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="h-5 w-5 rounded-full border border-slate-300 text-slate-600 flex items-center justify-center text-[11px] font-bold select-none"
+                            aria-label="Entenda a taxa"
+                          >
+                            i
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          align="start"
+                          sideOffset={10}
+                          className="z-[9999] max-w-[280px] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg"
+                        >
+                          <p className="font-semibold text-slate-900 mb-1">Tarifa de processamento</p>
+                          <p>
+                            Cobramos <strong>2,5%</strong> para cobrir custos do gateway e processamento.
+                            O desconto já aparece em “Você recebe”.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
+                  <span className="font-medium text-rose-600 text-sm">
+                    - R$ {depositFee.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="mt-3 border-t pt-3 flex items-center justify-between">
+                  <span className="font-medium text-slate-900">Você recebe</span>
+                  <span className="font-bold text-emerald-600 text-sm">
+                    R$ {depositNet.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {depositAmount > 0 ? (
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">
+                  Método de pagamento
+                </label>
+
+                <Tabs value={depositMethod} onValueChange={(v) => setDepositMethod(v as DepositMethod)}>
+                  <TabsList
+                    className={`w-full grid ${usableCardMethods.length > 0 ? "grid-cols-2" : "grid-cols-1"}`}
+                  >
+                    <TabsTrigger value="PIX">PIX</TabsTrigger>
+                    {usableCardMethods.length > 0 ? (
+                      <TabsTrigger value="CARD">Cartao</TabsTrigger>
+                    ) : null}
+                  </TabsList>
+                </Tabs>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-100 bg-yellow-50 p-3 text-sm text-slate-700">
+                Informe um valor válido para escolher o método de pagamento.
+              </div>
+            )}
+
+            {depositMethod === "PIX" && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex gap-3">
+                <QrCode className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />
+                <div className="text-sm text-slate-600">
+                  No PIX, você recebe um QR Code e o código copia e cola.
+                </div>
+              </div>
+            )}
+
             {depositMethod === "CARD" ? (
-              <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Cartão</p>
@@ -1305,6 +1419,9 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
                         })}
                       </SelectContent>
                     </Select>
+                    {!selectedCard ? (
+                      <p className="text-xs text-rose-600">Selecione um cartão salvo.</p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2">
@@ -1327,23 +1444,37 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">CVV</p>
-                    <Input value={cardCvv} onChange={(e) => setCardCvv(onlyDigits(e.target.value).slice(0, 4))} placeholder="***" />
+                    <Input
+                      value={cardCvv}
+                      onChange={(e) => setCardCvv(onlyDigits(e.target.value).slice(0, 4))}
+                      placeholder="***"
+                    />
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Email do pagador</p>
-                    <Input value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} placeholder="email@exemplo.com" />
+                    <Input
+                      value={payerEmail}
+                      onChange={(e) => setPayerEmail(e.target.value)}
+                      placeholder="email@exemplo.com"
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-slate-700">Documento do pagador (CPF/CNPJ)</p>
-                  <Input value={payerDocument} onChange={(e) => setPayerDocument(onlyDigits(e.target.value).slice(0, 14))} placeholder="Somente números" />
-                  <p className="text-xs text-slate-500">Detectado: {inferDocumentType(onlyDigits(payerDocument || ""))}</p>
+                  <Input
+                    value={payerDocument}
+                    onChange={(e) => setPayerDocument(onlyDigits(e.target.value).slice(0, 14))}
+                    placeholder="Somente números"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Detectado: {inferDocumentType(onlyDigits(payerDocument || ""))}
+                  </p>
                 </div>
 
                 <Button
                   className="w-full"
-                  disabled={cardOrderMutation.isPending}
+                  disabled={cardOrderMutation.isPending || depositAmount < 0.01}
                   onClick={() => cardOrderMutation.mutate()}
                 >
                   {cardOrderMutation.isPending ? (
@@ -1362,74 +1493,209 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
                   </div>
                 ) : null}
               </div>
+            ) : null}
+
+            {depositMethod === "PIX" ? (
+              <div className="mt-2 border-t border-slate-100 pt-4 flex gap-2 mb-6">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setDepositSetupOpen(false)}
+                  disabled={depositMutation.isPending}
+                >
+                  Cancelar
+                </Button>
+
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={depositAmount < 0.01 || depositMutation.isPending}
+                  onClick={() => depositMutation.mutate({ amount: depositAmount })}
+                >
+                  {depositMutation.isPending ? "Gerando..." : "Gerar PIX"}
+                </Button>
+              </div>
             ) : (
-              <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700"
-                disabled={depositMutation.isPending}
-                onClick={() => depositMutation.mutate({ amount: depositAmount })}
-              >
-                {depositMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Gerando PIX...
-                  </>
-                ) : (
-                  "Gerar PIX"
-                )}
-              </Button>
+              <div className="mt-2 border-t border-slate-100 pt-4 flex gap-2 mb-6">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setDepositSetupOpen(false)}
+                  disabled={cardOrderMutation.isPending}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={depositAmount < 0.01 || cardOrderMutation.isPending}
+                  onClick={() => cardOrderMutation.mutate()}
+                >
+                  {cardOrderMutation.isPending ? "Processando..." : "Confirmar pagamento"}
+                </Button>
+              </div>
             )}
-          </div>
+          </InvisibleScrollArea>
         </DialogContent>
       </Dialog>
 
-      {/* ===== MODAL PIX (instrumento de pagamento) ===== */}
+      {/* ===== MODAL PIX (EXATAMENTE do código de cima) ===== */}
       <Dialog open={pixOpen} onOpenChange={(v) => (!v ? closePixModal() : setPixOpen(true))}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Pagamento via PIX</DialogTitle>
-            <DialogDescription>
-              Use o QR ou copie o código. (Isso não é recibo — é pagamento.)
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="w-[min(98vw,860px)] max-h-[92vh] overflow-hidden p-0 focus:outline-none focus-visible:outline-none focus:ring-0 ring-0">
+          <div className="border-b border-slate-100 p-5 flex items-start justify-between gap-3">
+            <div>
+              <DialogHeader>
+                <DialogTitle>Pagamento via PIX</DialogTitle>
+                <DialogDescription>Escaneie o QR ou copie o código.</DialogDescription>
+              </DialogHeader>
 
-          <div ref={pixScrollRef} className="max-h-[70vh] overflow-y-auto pr-1 space-y-4">
-            <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
-              <p className="text-sm text-slate-700">
-                Status:{" "}
-                <span className="font-semibold capitalize">{pixStatus || "pendente"}</span>
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Expira em: {formatExpiresAtLabel(pixData?.expiresAt)} • Restante:{" "}
-                {expiresIn == null ? "-" : `${Math.floor(expiresIn / 60)
-                  .toString()
-                  .padStart(2, "0")}:${Math.floor(expiresIn % 60)
-                  .toString()
-                  .padStart(2, "0")}`}
-              </p>
-            </div>
-
-            {qrImage ? (
-              <div className="flex justify-center">
-                <img
-                  src={qrImage}
-                  alt="QR Code PIX"
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Badge
                   className={cn(
-                    "w-60 h-60 object-contain rounded-xl border",
-                    pixIsFinal && "opacity-40"
+                    "capitalize",
+                    (pixData?.status || "pending").toLowerCase() === "approved" ||
+                      (pixData?.status || "").toLowerCase() === "completed"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : pixIsFinal
+                      ? "bg-slate-100 text-slate-700"
+                      : "bg-amber-100 text-amber-700"
                   )}
-                />
-              </div>
-            ) : null}
+                >
+                  {pixData?.status || "pending"}
+                </Badge>
 
-            <div className="flex gap-2">
-              <Button className="flex-1" variant="outline" onClick={copyPix} disabled={pixIsFinal}>
-                Copiar código PIX
-              </Button>
-              <Button className="flex-1" onClick={closePixModal}>
-                Fechar
-              </Button>
+                <span className="text-xs text-slate-500">
+                  Expira em{" "}
+                  <span className="font-medium">
+                    {formatExpiresAtLabel(pixData?.expiresAt)}
+                  </span>
+                  {" • "}
+                  <span className="font-medium tabular-nums">{formatSecs(expiresIn)}</span>
+                  {mpStatusQuery.isFetching ? (
+                    <span className="ml-2 text-slate-400">(verificando…)</span>
+                  ) : null}
+                </span>
+              </div>
             </div>
           </div>
+
+          <InvisibleScrollArea ref={pixScrollRef} className="max-h-[calc(92vh-84px)] p-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 mb-12">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">QR Code</p>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Payment id:{" "}
+                    <span className="text-slate-700 font-medium break-all">
+                      {pixData?.paymentId || "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 h-9 px-3 text-sm rounded-lg"
+                  onClick={copyPix}
+                  disabled={!pixData?.qrCode || pixIsFinal}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar PIX
+                </Button>
+              </div>
+
+              <div className="mt-4 flex items-center justify-center">
+                {qrImage ? (
+                  <div className="rounded-2xl bg-slate-50 p-5">
+                    <img
+                      src={qrImage}
+                      alt="PIX QR"
+                      className="h-80 w-80 rounded-xl bg-white object-contain shadow-sm"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 w-full">
+                    {pixIsFinal ? (
+                      <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 text-center">
+                        <span className="font-medium">Pagamento encerrado.</span>{" "}
+                        Para continuar, gere um novo PIX.
+                      </div>
+                    ) : (
+                      <div>QR indisponível. Use o código abaixo.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!pixIsFinal && (
+                <div className="mt-6">
+                  <p className="text-sm font-semibold text-slate-900">Código PIX</p>
+                  <p className="text-xs text-slate-500 mt-1">Copie e cole no app do banco.</p>
+
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <pre className="whitespace-pre-wrap break-words text-xs text-slate-700">
+                      {pixData?.qrCode || "—"}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between w-full">
+                    <span className="text-xs text-slate-500">Valor</span>
+                    <span className="font-semibold text-slate-900 tabular-nums whitespace-nowrap text-sm">
+                      R$ {pixAmount.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">Taxa</span>
+                      <TooltipProvider delayDuration={120}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="h-5 w-5 rounded-full border border-slate-300 text-slate-600 flex items-center justify-center text-[11px] font-bold select-none"
+                              aria-label="Entenda a taxa"
+                            >
+                              i
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            align="start"
+                            sideOffset={10}
+                            className="z-[9999] max-w-[280px] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg"
+                          >
+                            <p className="font-semibold text-slate-900 mb-1">Tarifa de processamento</p>
+                            <p>
+                              Cobramos <strong>2,5%</strong> para cobrir custos do gateway e processamento.
+                              O valor já está descontado no “Você recebe”.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+
+                    <span className="font-medium text-rose-600 tabular-nums whitespace-nowrap text-sm">
+                      - R$ {pixFee.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between w-full">
+                    <span className="text-xs text-slate-500">Você recebe</span>
+                    <span className="font-bold text-emerald-600 tabular-nums whitespace-nowrap text-sm">
+                      R$ {pixNet.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Button variant="outline" className="w-full h-11 rounded-xl" onClick={closePixModal}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </InvisibleScrollArea>
         </DialogContent>
       </Dialog>
 
