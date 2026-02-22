@@ -144,6 +144,7 @@ function PixDialog({ open, pixData, onClose, setPixData, refreshUser, userId }: 
       toast.success("Pagamento confirmado! Atualizando saldo...");
 
       queryClient.invalidateQueries({ queryKey: ["wallet-balances", userId] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-summary", userId] });
       queryClient.invalidateQueries({ queryKey: ["wallet-ledger", userId] });
       queryClient.invalidateQueries({ queryKey: ["wallet-receipts", userId] });
       refreshUser?.();
@@ -352,7 +353,7 @@ function PixDialog({ open, pixData, onClose, setPixData, refreshUser, userId }: 
                         >
                           <p className="font-semibold text-slate-900 mb-1">Tarifa de processamento</p>
                           <p>
-                            Cobramos <strong>2,5%</strong> para cobrir custos do gateway e processamento.
+                            Cobramos <strong>4,99%</strong> para cobrir custos do gateway e processamento.
                             O valor já está descontado no “Você recebe”.
                           </p>
                         </TooltipContent>

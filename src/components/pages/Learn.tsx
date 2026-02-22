@@ -1,8 +1,9 @@
 "use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { createPageUrl } from '@/routes';
+import React from "react";
+import Link from "next/link";
+import { createPageUrl } from "@/routes";
+import { ROUTES } from "@/routes/pages";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,294 +12,363 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { 
-  GraduationCap, 
-  TrendingUp, 
-  Shield, 
-  DollarSign,
-  BookOpen,
-  Target,
-  BarChart3,
+import {
   AlertTriangle,
-  CheckCircle2,
   ArrowRight,
-  Lightbulb,
-  Scale
-} from 'lucide-react';
-import { motion } from 'framer-motion';
+  BarChart3,
+  CircleDollarSign,
+  CircleHelp,
+  ListChecks,
+  ShieldCheck,
+  Target,
+} from "lucide-react";
 
-const concepts = [
+type ConceptItem = {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  summary: string;
+  details: string;
+};
+
+type StepItem = {
+  step: string;
+  title: string;
+  description: string;
+  linkLabel: string;
+  linkHref: string;
+};
+
+const anchors = [
+  { id: "conceitos", label: "Conceitos" },
+  { id: "exemplo", label: "Exemplo" },
+  { id: "passo-a-passo", label: "Passo a passo" },
+  { id: "risco", label: "Risco" },
+  { id: "faq", label: "FAQ" },
+];
+
+const concepts: ConceptItem[] = [
   {
     icon: Target,
-    title: 'O que é um Mercado Preditivo?',
-    description: 'Um mercado onde você negocia contratos sobre eventos futuros. O preço reflete a probabilidade coletiva do evento acontecer.'
+    title: "Mercado preditivo",
+    summary:
+      "É um mercado em que você compra ou vende posição sobre um evento futuro.",
+    details:
+      "O preço muda com novas informações e com o fluxo de compra e venda dos participantes.",
   },
   {
-    icon: BarChart3,
-    title: 'Contratos SIM / NÃO',
-    description: 'Cada mercado tem dois lados: SIM (o evento acontece) e NÃO (o evento não acontece). Cada contrato paga R$1 se você acertar.'
+    icon: ShieldCheck,
+    title: "SIM / NÃO",
+    summary:
+      "Cada mercado tem dois lados: SIM e NÃO. O lado vencedor paga R$ 1,00 por contrato na resolução.",
+    details:
+      "Se o evento acontece, SIM vence. Se o evento não acontece, NÃO vence.",
   },
   {
-    icon: DollarSign,
-    title: 'Preço = Probabilidade',
-    description: 'Se um contrato SIM custa 60¢, o mercado estima 60% de chance do evento acontecer. Compre barato se você discorda!'
+    icon: CircleDollarSign,
+    title: "Preço = probabilidade",
+    summary:
+      "O preço funciona como probabilidade implícita do mercado. R$ 0,60 indica algo perto de 60%.",
+    details:
+      "Se você acha que a chance real é diferente, pode abrir posição conforme sua análise.",
   },
-  {
-    icon: Scale,
-    title: 'Hedge e Gestão de Risco',
-    description: 'Use mercados preditivos para se proteger contra cenários adversos ou para expressar visões sobre eventos econômicos.'
-  }
 ];
 
-const steps = [
+const steps: StepItem[] = [
   {
-    step: '01',
-    title: 'Escolha um Mercado',
-    description: 'Navegue pelos mercados disponíveis e encontre eventos sobre os quais você tem uma opinião ou conhecimento.'
+    step: "01",
+    title: "Escolha um mercado",
+    description: "Escolha um mercado que você entende e leia a regra de resolução.",
+    linkLabel: "Ver mercados",
+    linkHref: createPageUrl("Explore"),
   },
   {
-    step: '02',
-    title: 'Analise as Probabilidades',
-    description: 'O preço do contrato SIM indica a probabilidade implícita. Se você acha que o mercado está errado, há oportunidade.'
+    step: "02",
+    title: "Leia a probabilidade",
+    description: "Compare o preço atual com a sua visão de probabilidade.",
+    linkLabel: "Como ler probabilidades",
+    linkHref: "#conceitos",
   },
   {
-    step: '03',
-    title: 'Compre Contratos',
-    description: 'Compre SIM se você acredita que o evento vai acontecer, ou NÃO caso contrário. Invista apenas o que você pode perder.'
+    step: "03",
+    title: "Monte sua posição",
+    description: "Abra posição em SIM ou NÃO com valor compatível com seu risco.",
+    linkLabel: "Como comprar/vender",
+    linkHref: createPageUrl("Explore"),
   },
   {
-    step: '04',
-    title: 'Aguarde a Resolução',
-    description: 'Quando o evento é verificado, contratos vencedores recebem R$1 cada. Seu lucro é a diferença do preço de compra.'
-  }
+    step: "04",
+    title: "Acompanhe a resolução",
+    description: "Acompanhe até a resolução oficial e o crédito da posição vencedora.",
+    linkLabel: "Como funciona a resolução",
+    linkHref: ROUTES.resolutionRules,
+  },
 ];
 
-const faqs = [
+const faqItems: Array<{ question: string; answer: React.ReactNode }> = [
   {
-    question: 'Isso é aposta ou investimento?',
-    answer: 'Mercados preditivos são instrumentos financeiros que refletem probabilidades coletivas. Diferente de apostas tradicionais, você negocia com outros participantes (não contra a casa) e os preços são formados livremente pelo mercado. É similar a negociar ações, mas sobre eventos específicos.'
+    question: "Isso é aposta ou mercado?",
+    answer:
+      "É um mercado de previsão com negociação entre participantes, não uma aposta contra a casa. O preço é público e muda com oferta e demanda.",
   },
   {
-    question: 'Posso perder todo meu dinheiro?',
-    answer: 'Sim. Se você comprar contratos SIM e o evento não acontecer (ou vice-versa), você perde o valor investido. Por isso, invista apenas o que você pode perder e diversifique suas posições.'
+    question: "Posso perder tudo?",
+    answer:
+      "Sim. Se sua posição perder na resolução, você pode perder todo o valor investido.",
   },
   {
-    question: 'Como a plataforma ganha dinheiro?',
-    answer: 'Cobramos apenas taxas transparentes: 7% sobre depósitos e 10% sobre saques. Não temos posição proprietária contra os usuários e não lucramos com suas perdas.'
+    question: "Posso encerrar antes do resultado?",
+    answer:
+      "Você pode encerrar se houver liquidez disponível para negociar a saída antes da resolução.",
   },
   {
-    question: 'Como sei que o resultado é justo?',
-    answer: 'Cada mercado tem critérios de resolução públicos e fontes oficiais de verificação definidas antes da abertura. Os resultados são verificados de forma transparente e auditável.'
+    question: "Como a plataforma ganha dinheiro?",
+    answer: (
+      <>
+        A receita da plataforma vem de taxas operacionais. Consulte a{" "}
+        <Link className="font-medium text-emerald-700 hover:text-emerald-800" href={ROUTES.fees}>
+          Política de taxas
+        </Link>{" "}
+        para ver os valores vigentes.
+      </>
+    ),
   },
   {
-    question: 'Posso vender meus contratos antes do resultado?',
-    answer: 'Em breve! Estamos desenvolvendo um livro de ordens completo que permitirá negociar contratos a qualquer momento antes da resolução.'
+    question: "Como funciona a resolução?",
+    answer:
+      "A resolução usa critérios e fonte publicados antes da abertura do mercado.",
   },
   {
-    question: 'Qual o valor mínimo para começar?',
-    answer: 'O depósito mínimo é R$10. Com isso você já pode comprar contratos e começar a participar dos mercados.'
-  }
+    question: "Qual o mínimo para começar?",
+    answer:
+      "Você pode começar com valor baixo. O ideal é iniciar pequeno até dominar a dinâmica de posição e risco.",
+  },
 ];
 
 export default function Learn(): JSX.Element {
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 mb-6">
-              <GraduationCap className="w-3 h-3 mr-1" />
-              Central de Conhecimento
-            </Badge>
-            <h1 className="text-4xl sm:text-5xl font-bold mb-6">
-              Aprenda a Negociar
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400"> Previsões</span>
-            </h1>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-              Entenda como funcionam os mercados preditivos, o que são contratos binários e como transformar seu conhecimento em posições financeiras.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Core Concepts */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">Conceitos Fundamentais</h2>
-          <p className="text-lg text-slate-600">Tudo que você precisa saber antes de começar</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          {concepts.map((concept, index) => (
-            <motion.div
-              key={concept.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-2xl border border-slate-200 p-8 hover:shadow-lg transition-all"
-            >
-              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-6">
-                <concept.icon className="w-6 h-6 text-emerald-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">{concept.title}</h3>
-              <p className="text-slate-600 leading-relaxed">{concept.description}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Example */}
-      <section className="bg-white border-y border-slate-200 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <Badge className="bg-blue-100 text-blue-700 mb-4">
-              <Lightbulb className="w-3 h-3 mr-1" />
-              Exemplo Prático
-            </Badge>
-            <h2 className="text-3xl font-bold text-slate-900">Como Funciona na Prática</h2>
+    <div className="min-h-screen bg-slate-50 pb-16">
+      <section className="border-b border-slate-200 bg-gradient-to-b from-slate-900 to-slate-800 py-14 text-white">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <Badge className="mb-5 border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+            <CircleHelp className="mr-1 h-3.5 w-3.5" />
+            Guia rápido
+          </Badge>
+          <h1 className="text-3xl font-bold sm:text-4xl">Como negociar previsões na Predizer</h1>
+          <p className="mt-3 max-w-3xl text-slate-200">
+            Contratos SIM/NÃO, preço como probabilidade e impacto financeiro em linguagem direta.
+          </p>
+          <div className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5">
+            <p className="text-sm font-semibold uppercase tracking-wide text-slate-300">Em 20 segundos</p>
+            <ul className="mt-3 grid gap-2 text-sm text-slate-100 sm:grid-cols-3">
+              <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">SIM paga R$ 1,00 se o evento ocorrer.</li>
+              <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">NÃO paga R$ 1,00 se o evento não ocorrer.</li>
+              <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">Preço representa a probabilidade implícita.</li>
+            </ul>
           </div>
+        </div>
+      </section>
 
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-8 border border-slate-200">
-            <div className="mb-6">
-              <p className="text-sm text-slate-500 mb-2">Mercado de Exemplo</p>
-              <h3 className="text-xl font-semibold text-slate-900">
-                "O Banco Central vai cortar a Selic em Setembro 2025?"
+      <div className="sticky top-16 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <nav aria-label="Sumário da página" className="overflow-x-auto">
+            <ul className="flex min-w-max items-center justify-center gap-6 py-3 text-sm">
+              {anchors.map((anchor) => (
+                <li key={anchor.id}>
+                  <a
+                    href={`#${anchor.id}`}
+                    className="font-medium text-slate-600 transition hover:text-slate-900"
+                  >
+                    {anchor.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+      </div>
+
+      <section id="conceitos" className="scroll-mt-28 border-b border-slate-200 py-12">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">Conceitos fundamentais</h2>
+            <p className="mt-2 text-slate-600">Base mínima para leitura de preço e tomada de posição.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {concepts.map((concept, index) => (
+              <article key={concept.title} className="rounded-2xl border border-slate-200 bg-white p-5">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                  <concept.icon className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900">{concept.title}</h3>
+                <p className="mt-2 text-sm text-slate-600">{concept.summary}</p>
+                <Accordion type="single" collapsible className="mt-4">
+                  <AccordionItem value={`details-${index}`} className="border-slate-200">
+                    <AccordionTrigger className="py-2 text-sm font-medium text-slate-700 hover:no-underline">
+                      Saiba mais
+                    </AccordionTrigger>
+                    <AccordionContent className="text-sm text-slate-600">
+                      {concept.details}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="exemplo" className="scroll-mt-28 border-b border-slate-200 py-12">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">Exemplo prático</h2>
+            <p className="mt-2 text-slate-600">Simulação direta de custo, cenário vencedor e perda potencial.</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mercado</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                Banco Central reduzirá a Selic na próxima reunião?
               </h3>
             </div>
-
-            <div className="grid sm:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white rounded-xl p-6 border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-semibold text-emerald-600">SIM</span>
-                  <span className="text-2xl font-bold text-emerald-600">65¢</span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  O mercado estima <strong>65% de probabilidade</strong> de corte na Selic.
-                </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-sm font-semibold text-emerald-700">SIM</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-800">R$ 0,65</p>
               </div>
-              <div className="bg-white rounded-xl p-6 border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-semibold text-rose-600">NÃO</span>
-                  <span className="text-2xl font-bold text-rose-600">35¢</span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  O mercado estima <strong>35% de probabilidade</strong> de não haver corte.
-                </p>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                <p className="text-sm font-semibold text-rose-700">NÃO</p>
+                <p className="mt-1 text-2xl font-bold text-rose-800">R$ 0,35</p>
               </div>
             </div>
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h4 className="font-semibold text-slate-900">Se eu comprar 100 contratos SIM</h4>
+              <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                <li className="flex items-center justify-between gap-3">
+                  <span>Custo da posição</span>
+                  <strong className="text-slate-900">R$ 65,00</strong>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <span>Se SIM vencer</span>
+                  <strong className="text-emerald-700">Recebe R$ 100,00 (lucro R$ 35,00)</strong>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <span>Se NÃO vencer</span>
+                  <strong className="text-rose-700">Perde R$ 65,00</strong>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="bg-emerald-50 rounded-xl p-6 border border-emerald-200">
-              <h4 className="font-semibold text-emerald-900 mb-3">Se você comprar 100 contratos SIM por R$65:</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">Se o Banco Central cortar:</span>
-                  <span className="font-semibold text-emerald-900">Você recebe R$100 (+R$35 lucro)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">Se não houver corte:</span>
-                  <span className="font-semibold text-rose-600">Você perde R$65</span>
-                </div>
+      <section id="passo-a-passo" className="scroll-mt-28 border-b border-slate-200 py-12">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">Passo a passo</h2>
+            <p className="mt-2 text-slate-600">Fluxo essencial para começar com disciplina de risco.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {steps.map((item) => (
+              <article key={item.step} className="rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{item.step}</p>
+                <h3 className="mt-2 text-lg font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                <Link
+                  href={item.linkHref}
+                  className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                >
+                  {item.linkLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="risco" className="scroll-mt-28 border-b border-slate-200 py-12">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-amber-100 p-2 text-amber-700">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-amber-900">Aviso de risco</h2>
+                <p className="mt-2 text-sm leading-relaxed text-amber-800">
+                  Mercado de previsão envolve risco de perda total. Defina limites e opere apenas com valor que você pode perder sem afetar seu orçamento.
+                </p>
+                <Link
+                  href={ROUTES.riskDisclosure}
+                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-amber-900 underline underline-offset-4 hover:text-amber-950"
+                >
+                  Ler aviso de risco completo
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Step by Step */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">Passo a Passo</h2>
-          <p className="text-lg text-slate-600">Do cadastro ao seu primeiro trade</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {steps.map((item, index) => (
-            <motion.div
-              key={item.step}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="relative"
-            >
-              <div className="text-6xl font-bold text-slate-100 mb-4">{item.step}</div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">{item.title}</h3>
-              <p className="text-slate-600 text-sm">{item.description}</p>
-              {index < steps.length - 1 && (
-                <ArrowRight className="hidden lg:block absolute top-8 -right-4 w-6 h-6 text-slate-300" />
-              )}
-            </motion.div>
-          ))}
+      <section id="faq" className="scroll-mt-28 py-12">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">Perguntas frequentes</h2>
+            <p className="mt-2 text-slate-600">Perguntas centrais para operação inicial.</p>
+          </div>
+          <Accordion type="single" collapsible className="space-y-3">
+            {faqItems.map((item, index) => (
+              <AccordionItem
+                key={item.question}
+                value={`faq-${index}`}
+                className="rounded-xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger className="py-4 text-left font-medium text-slate-900 hover:no-underline">
+                  {item.question}
+                </AccordionTrigger>
+                <AccordionContent className="pb-4 text-sm text-slate-600">
+                  {item.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          <Link
+            href={ROUTES.faq}
+            className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+          >
+            Ver FAQ completo
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 
-      {/* Risk Warning */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-amber-100 rounded-xl">
-              <AlertTriangle className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-amber-900 mb-2">Aviso de Risco</h3>
-              <p className="text-amber-700 leading-relaxed">
-                Negociar em mercados preditivos envolve risco substancial de perda. 
-                Você pode perder todo o capital investido. Não invista dinheiro que você não pode perder. 
-                Mercados preditivos não são adequados para todos os perfis de investidor. 
-                Certifique-se de entender completamente os riscos antes de negociar.
+      <section className="pt-2">
+        <div className="mx-auto max-w-5xl px-4 pb-4 sm:px-6">
+          <div className="rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-600 to-emerald-500 p-7 text-center text-white">
+            <div className="mx-auto max-w-2xl">
+              <h2 className="text-2xl font-bold">Pronto para começar?</h2>
+              <p className="mt-2 text-sm text-emerald-50">
+                Acesse mercados abertos e monte sua primeira posição com disciplina de risco.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQs */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">Perguntas Frequentes</h2>
-        </div>
-
-        <Accordion type="single" collapsible className="space-y-4">
-          {faqs.map((faq, index) => (
-            <AccordionItem 
-              key={index} 
-              value={`item-${index}`}
-              className="bg-white rounded-xl border border-slate-200 px-6"
-            >
-              <AccordionTrigger className="text-left font-medium text-slate-900 hover:no-underline py-5">
-                {faq.question}
-              </AccordionTrigger>
-              <AccordionContent className="text-slate-600 pb-5">
-                {faq.answer}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </section>
-
-      {/* CTA */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl p-8 sm:p-12 text-white text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">Pronto para Começar?</h2>
-          <p className="text-emerald-100 mb-8 max-w-xl mx-auto">
-            Explore os mercados disponíveis e faça sua primeira previsão. 
-            Lembre-se: invista apenas o que você pode perder.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href={createPageUrl('Explore')}>
-              <Button size="lg" className="bg-white text-emerald-700 hover:bg-emerald-50">
-                Explorar Mercados
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-            <Link href={createPageUrl('Wallet')}>
-              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                Fazer Depósito
-              </Button>
-            </Link>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href={createPageUrl("Explore")}>
+                <Button className="w-full bg-white text-emerald-700 hover:bg-emerald-50 sm:w-auto">
+                  Explorar Mercados
+                  <BarChart3 className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href={createPageUrl("Wallet")}>
+                <Button
+                  variant="outline"
+                  className="w-full border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto"
+                >
+                  Fazer Depósito
+                  <ListChecks className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

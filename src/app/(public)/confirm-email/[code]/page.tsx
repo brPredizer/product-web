@@ -50,7 +50,7 @@ export default function ConfirmEmailShortCodePage(): JSX.Element {
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error("Confirm email by short code failed", err);
-        redirectToError("Nao foi possivel confirmar o email.");
+        redirectToError("Não foi possivel confirmar o email.");
       }
     };
 

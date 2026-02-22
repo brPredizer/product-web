@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User as UserIcon, Home, Shield, CreditCard } from "lucide-react";
 
@@ -41,4 +41,3 @@ export default function AccountSidebar(): JSX.Element {
     </aside>
   );
 }
-

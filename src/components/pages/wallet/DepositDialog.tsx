@@ -148,6 +148,7 @@ function DepositDialog({ open, onOpenChange, user, refreshUser, onPixReady }: De
       toast.success("PIX gerado.");
 
       queryClient.invalidateQueries({ queryKey: ["wallet-receipts", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-summary", user?.id] });
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -224,6 +225,7 @@ function DepositDialog({ open, onOpenChange, user, refreshUser, onPixReady }: De
       if (normalizedStatus === "approved") {
         toast.success("Pagamento aprovado. Atualizando saldo...");
         queryClient.invalidateQueries({ queryKey: ["wallet-balances", user?.id] });
+        queryClient.invalidateQueries({ queryKey: ["wallet-summary", user?.id] });
         queryClient.invalidateQueries({ queryKey: ["wallet-ledger", user?.id] });
         queryClient.invalidateQueries({ queryKey: ["wallet-receipts", user?.id] });
         refreshUser?.();
@@ -278,7 +280,7 @@ function DepositDialog({ open, onOpenChange, user, refreshUser, onPixReady }: De
 
               <div className="mt-2 flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-600">Taxa (2,5%)</span>
+                  <span className="text-slate-600">Taxa (4,99%)</span>
                   <TooltipProvider delayDuration={120}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -298,7 +300,7 @@ function DepositDialog({ open, onOpenChange, user, refreshUser, onPixReady }: De
                       >
                         <p className="font-semibold text-slate-900 mb-1">Tarifa de processamento</p>
                         <p>
-                          Cobramos <strong>2,5%</strong> para cobrir custos do gateway e processamento.
+                          Cobramos <strong>4,99%</strong> para cobrir custos do gateway e processamento.
                           O desconto já aparece em “Você recebe”.
                         </p>
                       </TooltipContent>

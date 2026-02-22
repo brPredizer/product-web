@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '@/app/api/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import { AlertCircle, Mail } from 'lucide-react';
 
 export default function ForgotPasswordPage(): JSX.Element {
@@ -64,61 +66,65 @@ export default function ForgotPasswordPage(): JSX.Element {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-10">
-      <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
-      <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.22]"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 1px 1px, rgba(2,6,23,0.12) 1px, transparent 0)',
-          backgroundSize: '26px 26px',
-        }}
-      />
-      <div className="relative mx-auto max-w-xl w-full">
-        <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
-          <div className="p-8">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-slate-900">Redefinir senha</h1>
-              <p className="mt-2 text-sm text-slate-600">Informe seu e-mail para receber o código.</p>
-            </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Header />
+      <main className="relative flex-1 w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-20 md:py-28">
+        <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
+        <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.22]"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 1px 1px, rgba(2,6,23,0.12) 1px, transparent 0)',
+            backgroundSize: '26px 26px',
+          }}
+        />
+        <div className="relative mx-auto max-w-xl w-full">
+          <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
+            <div className="p-8">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-slate-900">Redefinir senha</h1>
+                <p className="mt-2 text-sm text-slate-600">Informe seu e-mail para receber o código.</p>
+              </div>
 
-            {submitted ? (
-              <div className="mt-6 text-center text-sm text-slate-700">Se o e-mail existir, enviamos um código por e-mail.</div>
-            ) : (
-              <form className="mt-6" onSubmit={handleSubmit}>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">E-mail</label>
+              {submitted ? (
+                <div className="mt-6 text-center text-sm text-slate-700">Se o e-mail existir, enviamos um código por e-mail.</div>
+              ) : (
+                <form className="mt-6" onSubmit={handleSubmit}>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">E-mail</label>
 
-                  <div className="mt-2 flex gap-3 items-center">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input type="email" autoComplete="email" placeholder="voce@exemplo.com" className="h-11 pl-10 rounded-xl" value={email} onChange={(e) => setEmail(e.target.value)} />
-                    </div>
+                    <div className="mt-2 flex gap-3 items-center">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input type="email" autoComplete="email" placeholder="voce@exemplo.com" className="h-11 pl-10 rounded-xl" value={email} onChange={(e) => setEmail(e.target.value)} />
+                      </div>
 
-                    <div className="w-44">
-                      <Button type="submit" className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base" disabled={loading || !email}>
-                        {loading ? 'Enviando...' : 'Enviar código'}
-                      </Button>
+                      <div className="w-44">
+                        <Button type="submit" className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base" disabled={loading || !email}>
+                          {loading ? 'Enviando...' : 'Enviar código'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {error && (
-                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                    <AlertCircle className="mt-0.5 h-4 w-4" />
-                    <p>{error}</p>
-                  </div>
-                )}
-              </form>
-            )}
+                  {error && (
+                    <div className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                      <AlertCircle className="mt-0.5 h-4 w-4" />
+                      <p>{error}</p>
+                    </div>
+                  )}
+                </form>
+              )}
 
-            <div className="mt-6 text-center text-sm text-slate-600">
-              <Link href="/sign-in" className="font-semibold text-emerald-700 hover:text-emerald-800">Voltar para login</Link>
+              <div className="mt-6 text-center text-sm text-slate-600">
+                <Link href="/sign-in" className="font-semibold text-emerald-700 hover:text-emerald-800">Voltar para login</Link>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </main>
+      <Footer />
     </div>
   );
 }

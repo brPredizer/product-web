@@ -183,7 +183,7 @@ function SignupPageContent(): JSX.Element {
   if (isLoadingAuth) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">
-        Verificando sessÃ£o...
+        Verificando sessão...
       </div>
     );
   }

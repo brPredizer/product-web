@@ -1,25 +1,28 @@
 import React from 'react'
 import Link from 'next/link'
-import { createPageUrl } from '@/routes'
-import { Badge } from "@/components/ui/badge"
-import { TrendingUp, TrendingDown, Clock, Users } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { CalendarDays, Clock, Users } from 'lucide-react'
+
+import { createPageUrl } from '@/routes'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 const categoryLabels: Record<string, string> = {
-  'CLIMA': 'Clima',
-  'CRIPTOMOEDAS': 'Criptomoedas',
-  'CULTURA': 'Cultura',
-  'ECONOMIA': 'Economia',
+  CLIMA: 'Clima',
+  CRIPTOMOEDAS: 'Criptomoedas',
+  CULTURA: 'Cultura',
+  ECONOMIA: 'Economia',
   'EM-ALTA': 'Em Alta',
-  'EMPRESAS': 'Empresas',
-  'ESPORTES': 'Esportes',
-  'FINANCAS': 'Finanças',
-  'MENCOES': 'Menções',
-  'MUNDO': 'Mundo',
-  'NOVIDADES': 'Novidades',
-  'POLITICA': 'Política',
-  'SAUDE': 'Saúde',
+  EMPRESAS: 'Empresas',
+  ESPORTES: 'Esportes',
+  FINANCAS: 'Finanças',
+  MENCOES: 'Mencões',
+  MUNDO: 'Mundo',
+  NOVIDADES: 'Novidades',
+  POLITICA: 'Política',
+  SAUDE: 'Saúde',
   'TECNOLOGIA-E-CIENCIA': 'Tecnologia e Ciência'
 }
 
@@ -37,8 +40,12 @@ const categoryColors: Record<string, string> = {
   NOVIDADES: 'bg-teal-500/10 text-teal-700 border-teal-500/25',
   POLITICA: 'bg-blue-500/10 text-blue-700 border-blue-500/25',
   SAUDE: 'bg-red-500/10 text-red-700 border-red-500/25',
-  'TECNOLOGIA-E-CIENCIA': 'bg-purple-500/10 text-purple-700 border-purple-500/25'
+  'TECNOLOGIA-E-CIENCIA': 'bg-violet-500/10 text-violet-700 border-violet-500/25'
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const MIN_SEGMENT_PX = 6
+
 type Market = {
   id: string | number
   title: string
@@ -50,122 +57,212 @@ type Market = {
   category?: string
 }
 
-export default function MarketCard({ market, compact = false }: { market: Market; compact?: boolean }) {
-  const yesPercent = Math.round(((market.yes_price ?? 0.5) as number) * 100)
-  const noPercent = 100 - yesPercent
-  
-  const isClosingSoon = !!market.closing_date && (new Date(market.closing_date).getTime() - Date.now() < 24 * 60 * 60 * 1000)
+function clampPct(value: number): number {
+  if (Number.isNaN(value)) return 0
+  return Math.max(0, Math.min(100, value))
+}
 
-  const closingDistance = market.closing_date
-    ? formatDistanceToNow(new Date(market.closing_date), { locale: ptBR, addSuffix: true })
-    : null
+function parseDate(value?: string | null): Date | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
 
-  const volumeLabel = (market.volume_total ?? 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })
+function normalizePercents(yesPrice?: number, noPrice?: number): { yes: number; no: number } {
+  const rawYes = Number.isFinite(yesPrice) ? Number(yesPrice) * 100 : Number.NaN
+  const rawNo = Number.isFinite(noPrice) ? Number(noPrice) * 100 : Number.NaN
 
-  if (compact) {
-    return (
-      <Link 
-        href={createPageUrl(`Market?id=${market.id}`)}
-        className="group block p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-lg transition-all duration-300"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 line-clamp-2 group-hover:text-emerald-600 transition-colors">
-              {market.title}
-            </p>
-            <div className="flex items-center gap-2 mt-2">
-              <Badge variant="outline" className={`text-xs ${categoryColors[market.category ?? '']}`}>
-                {categoryLabels[market.category ?? '']}
-              </Badge>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
-              {closingDistance && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Encerra {closingDistance}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <Users className="w-3.5 h-3.5" />
-                <span>{volumeLabel} volume</span>
-              </div>
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="text-2xl font-bold text-emerald-600">{yesPercent}%</div>
-            <div className="text-xs text-slate-500">SIM</div>
-          </div>
-        </div>
-      </Link>
-    )
+  if (Number.isFinite(rawYes) && Number.isFinite(rawNo) && rawYes + rawNo > 0) {
+    const total = rawYes + rawNo
+    return {
+      yes: clampPct((rawYes / total) * 100),
+      no: clampPct((rawNo / total) * 100)
+    }
   }
 
+  if (Number.isFinite(rawYes)) {
+    const yes = clampPct(rawYes)
+    return { yes, no: clampPct(100 - yes) }
+  }
+
+  if (Number.isFinite(rawNo)) {
+    const no = clampPct(rawNo)
+    return { yes: clampPct(100 - no), no }
+  }
+
+  return { yes: 50, no: 50 }
+}
+
+function formatCompactCurrency(value: number): string {
+  const abs = Math.abs(value)
+  const compact = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  })
+
+  if (abs >= 1_000_000) return `R$ ${compact.format(value / 1_000_000)}M`
+  if (abs >= 1_000) return `R$ ${compact.format(value / 1_000)}k`
+
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value)
+}
+
+export default function MarketCard({ market, compact = false }: { market: Market; compact?: boolean }) {
+  const { yes, no } = normalizePercents(market.yes_price, market.no_price)
+  const yesPct = Math.round(yes)
+  const noPct = Math.round(no)
+
+  const categoryKey = market.category ?? ''
+  const categoryLabel = categoryLabels[categoryKey] ?? (categoryKey.replaceAll('-', ' ') || 'Mercado')
+  const categoryColor = categoryColors[categoryKey] ?? 'bg-slate-100 text-slate-700 border-slate-200'
+
+  const closingDate = parseDate(market.closing_date)
+  const closingMs = closingDate ? closingDate.getTime() - Date.now() : null
+  const isClosingSoon = closingMs !== null && closingMs > 0 && closingMs < DAY_MS
+
+  const closeLabel = closingDate
+    ? `Encerra ${format(closingDate, "d 'de' MMM", { locale: ptBR })}`
+    : 'Sem data de encerramento'
+
+  const closeDistanceLabel = closingDate
+    ? `Encerra ${formatDistanceToNow(closingDate, { locale: ptBR, addSuffix: true })}`
+    : closeLabel
+
+  const volumeLabel = `${formatCompactCurrency(Number(market.volume_total ?? 0))} volume`
+
+  const showYes = yes > 0
+  const showNo = no > 0
+
   return (
-    <Link 
+    <Link
       href={createPageUrl(`Market?id=${market.id}`)}
-      className="group block bg-white rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-xl transition-all duration-300 overflow-hidden"
+      className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
     >
-      {market.image_url && (
-        <div className="h-32 overflow-hidden">
-          <img 
-            src={market.image_url} 
-            alt="" 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        </div>
-      )}
-      
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <Badge variant="outline" className={`text-xs ${categoryColors[market.category ?? '']}`}>
-            {categoryLabels[market.category ?? '']}
-          </Badge>
-          {isClosingSoon && (
-            <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">
-              <Clock className="w-3 h-3 mr-1" />
-              Encerra em breve
+      <Card
+        className={cn(
+          'h-full rounded-2xl border-slate-200 bg-white p-5 shadow-sm transition-all duration-200',
+          'hover:-translate-y-0.5 hover:shadow-md',
+          compact && 'p-4'
+        )}
+      >
+        {market.image_url && !compact ? (
+          <div className="mb-4 overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100">
+            <img
+              src={market.image_url}
+              alt={market.title}
+              className="h-32 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            />
+          </div>
+        ) : null}
+
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className={cn('rounded-lg px-3 py-lg text-xs font-medium', categoryColor)}>
+              {categoryLabel}
             </Badge>
-          )}
+
+            {isClosingSoon ? (
+              <Badge
+                variant="outline"
+                className="rounded-lg border-amber-200 bg-amber-50 px-3 py-lg text-xs font-medium text-amber-700"
+              >
+                <Clock className="mr-1 h-3 w-3" />
+                Encerra em breve
+              </Badge>
+            ) : null}
+          </div>
+
         </div>
 
-        <h3 className="text-lg font-semibold text-slate-900 mb-4 line-clamp-2 group-hover:text-emerald-600 transition-colors">
+        <h3
+          className={cn(
+            'mt-4 line-clamp-3 text-[17px] font-semibold leading-snug tracking-[-0.01em] text-slate-900',
+            compact && 'mt-3 line-clamp-2 text-base'
+          )}
+        >
           {market.title}
         </h3>
 
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="font-semibold text-emerald-600">SIM R$ {(market.yes_price ?? 0).toFixed(2)}</span>
-            <span className="font-semibold text-rose-500">NÃO R$ {((market.no_price ?? (1 - (market.yes_price ?? 0))) as number).toFixed(2)}</span>
+        <div className={cn('mt-4', compact && 'mt-3')}>
+          <div className="grid grid-cols-2 items-end gap-3">
+            <div>
+              <div className="text-[11px] font-medium text-slate-500">SIM</div>
+              <div className={cn('mt-0.5 font-semibold leading-none tabular-nums text-emerald-600', compact ? 'text-lg' : 'text-xl')}>
+                {yesPct}%
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="text-[11px] font-medium text-slate-500">NÃO</div>
+              <div className={cn('mt-0.5 font-semibold leading-none tabular-nums text-rose-600', compact ? 'text-lg' : 'text-xl')}>
+                {noPct}%
+              </div>
+            </div>
           </div>
-          <div className="h-2 rounded-full bg-slate-100 overflow-hidden flex">
-            <div 
-              className="bg-emerald-600 transition-all duration-500"
-              style={{ width: `${yesPercent}%` }}
-            />
-            <div 
-              className="bg-rose-600 transition-all duration-500"
-              style={{ width: `${noPercent}%` }}
-            />
+
+          <div className="mt-3">
+            <div
+              className={cn(
+                'w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200',
+                compact ? 'h-1' : 'h-1.5'
+              )}
+            >
+              <div className="flex h-full w-full">
+                <div
+                  className={cn('h-full bg-emerald-500 transition-[width] duration-300', showYes && 'min-w-[6px]')}
+                  style={{
+                    width: `${yes}%`,
+                    minWidth: showYes ? MIN_SEGMENT_PX : 0
+                  }}
+                  aria-label={`SIM ${yesPct}%`}
+                />
+                <div
+                  className={cn('h-full bg-rose-500 transition-[width] duration-300', showNo && 'min-w-[6px]')}
+                  style={{
+                    width: `${no}%`,
+                    minWidth: showNo ? MIN_SEGMENT_PX : 0
+                  }}
+                  aria-label={`NÃO ${noPct}%`}
+                />
+              </div>
+            </div>
+
+            {!compact ? (
+              <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  SIM
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" />
+                  NÃO
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-1">
-            <Users className="w-3.5 h-3.5" />
-            <span>R$ {(((market.volume_total ?? 0) as number) / 1000).toFixed(1)}k volume</span>
-          </div>
-          {market.closing_date && (
-            <span>
-              Encerra {format(new Date(market.closing_date), "d 'de' MMM", { locale: ptBR })}
-            </span>
+        <div
+          className={cn(
+            'mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500',
+            compact && 'mt-3 text-[11px]'
           )}
+        >
+          <div className="inline-flex items-center gap-2 min-w-0">
+            <Users className="h-4 w-4 shrink-0" />
+            <span className="tabular-nums truncate">{volumeLabel}</span>
+          </div>
+
+          <div className="inline-flex items-center gap-2 min-w-0">
+            <CalendarDays className="h-4 w-4 shrink-0" />
+            <span className="truncate">{compact ? closeDistanceLabel : closeLabel}</span>
+          </div>
         </div>
-      </div>
+      </Card>
     </Link>
   )
 }

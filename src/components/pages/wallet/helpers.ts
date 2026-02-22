@@ -1,8 +1,8 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export const DEPOSIT_FEE = 0.025; // 2.5%
-export const WITHDRAWAL_FEE = 0.075; // 7.5%
+export const DEPOSIT_FEE = 0.0499; // 4.99%
+export const WITHDRAWAL_FEE = 0.0799; // 7.99%
 
 export type DepositMethod = "PIX" | "CARD";
 

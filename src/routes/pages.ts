@@ -2,6 +2,13 @@ export const ROUTES = {
   home: '/',
   explore: '/explore',
   learn: '/learn',
+  faq: '/faq',
+  helpCenter: '/central-de-ajuda',
+  fees: '/taxas',
+  terms: '/termos',
+  privacy: '/privacidade',
+  riskDisclosure: '/aviso-de-risco',
+  resolutionRules: '/regras-de-resolucao',
   market: '/market',
   portfolio: '/portfolio',
   wallet: '/wallet',
@@ -23,6 +30,13 @@ export const PAGE_PATHS = {
   Home: ROUTES.home,
   Explore: ROUTES.explore,
   Learn: ROUTES.learn,
+  Faq: ROUTES.faq,
+  HelpCenter: ROUTES.helpCenter,
+  Fees: ROUTES.fees,
+  Terms: ROUTES.terms,
+  Privacy: ROUTES.privacy,
+  RiskDisclosure: ROUTES.riskDisclosure,
+  ResolutionRules: ROUTES.resolutionRules,
   Market: ROUTES.market,
   Portfolio: ROUTES.portfolio,
   Wallet: ROUTES.wallet,
@@ -77,7 +91,14 @@ export const PUBLIC_ROUTE_PREFIXES = [
   ROUTES.signUp,
   ROUTES.forgotPassword,
   ROUTES.resetPassword,
-  ROUTES.confirmEmail
+  ROUTES.confirmEmail,
+  ROUTES.faq,
+  ROUTES.helpCenter,
+  ROUTES.fees,
+  ROUTES.terms,
+  ROUTES.privacy,
+  ROUTES.riskDisclosure,
+  ROUTES.resolutionRules
 ];
 
 export const PRIVATE_ROUTE_PREFIXES = [

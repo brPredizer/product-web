@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -24,6 +23,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from 'sonner';
 import { Shield, Sparkles, BarChart3, CalendarDays } from 'lucide-react';
+import InitialPricingBlock from "./InitialPricingBlock";
+import { categories } from "./constants";
+import {
+  clampNumber,
+  clampProbability,
+  formatBRDateTime,
+  toIsoStringOrNull,
+  toLocalInputOrEmpty,
+  toLocalInputValue,
+} from "./utils";
 
 type User = any;
 
@@ -40,113 +49,6 @@ const SelectItemC = (SelectItem as unknown) as React.ComponentType<any>;
 const SelectTriggerC = (SelectTrigger as unknown) as React.ComponentType<any>;
 const SelectValueC = (SelectValue as unknown) as React.ComponentType<any>;
 
-const categories = [
-  { id: "POLITICA", name: "Política" },
-  { id: "ESPORTES", name: "Esportes" },
-  { id: "CULTURA", name: "Cultura" },
-  { id: "CRIPTOMOEDAS", name: "Criptomoedas" },
-  { id: "CLIMA", name: "Clima" },
-  { id: "ECONOMIA", name: "Economia" },
-  { id: "MENCOES", name: "Menções" },
-  { id: "EMPRESAS", name: "Empresas" },
-  { id: "FINANCAS", name: "Finanças" },
-  { id: "TECNOLOGIA-E-CIENCIA", name: "Tecnologia e Ciência" },
-  { id: "SAUDE", name: "Saúde" },
-  { id: "MUNDO", name: "Mundo" },
-];
-
-const toLocalInputValue = (date: Date) => {
-  const offsetMs = date.getTimezoneOffset() * 60000;
-  const local = new Date(date.getTime() - offsetMs);
-  return local.toISOString().slice(0, 16);
-};
-
-const toIsoStringOrNull = (value?: string | null) => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-};
-
-const toLocalInputOrEmpty = (value?: string | null) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return toLocalInputValue(date);
-};
-
-const clampProbability = (value: unknown) => {
-  const numeric = Number(value);
-  if (Number.isNaN(numeric)) return 50;
-  return Math.min(99, Math.max(1, numeric));
-};
-
-const clampNumber = (n: number, min: number, max: number) => {
-  if (Number.isNaN(n)) return min;
-  return Math.min(max, Math.max(min, n));
-};
-
-const formatBRDateTime = (value?: string | Date | null) => {
-  if (!value) return '—';
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
-
-const InitialPricingBlock: React.FC<{
-  yesPercent: number;
-  setYesPercent: (v: number) => void;
-  categoryLabel?: string;
-  closingDate?: string;
-}> = ({ yesPercent, setYesPercent, categoryLabel = '—' }) => {
-  const yesInt = clampNumber(parseInt(String(yesPercent ?? 50), 10), 0, 100);
-  const noInt = 100 - yesInt;
-
-  return (
-    <div className="space-y-1.5">
-      <LabelC className="text-sm font-semibold text-slate-700">
-        Probabilidade inicial (SIM) (%)
-      </LabelC>
-      <InputC
-        type="number"
-        inputMode="numeric"
-        min={0}
-        max={100}
-        step={1}
-        value={yesInt}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-          const v = clampNumber(parseInt(e.target.value || '0', 10), 0, 100);
-          setYesPercent(v);
-        }}
-        className={cn(
-          "h-10 w-full tabular-nums",
-          yesInt <= 0 || yesInt >= 100 ? "border-amber-300 focus-visible:ring-amber-200" : ""
-        )}
-      />
-      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-        <BadgeC className="bg-emerald-50 text-emerald-700 border border-emerald-200">
-          SIM: {yesInt}%
-        </BadgeC>
-        <BadgeC className="bg-rose-50 text-rose-700 border border-rose-200">
-          NÃO: {noInt}%
-        </BadgeC>
-      </div>
-      <p className="text-xs text-slate-500">
-        Mercado binário: o <b>NÃO</b> é calculado automaticamente como <b>100% − SIM</b>.
-      </p>
-      {(yesInt <= 0 || yesInt >= 100) && (
-        <p className="text-xs text-amber-700">
-          Dica: valores 0% ou 100% travam o preço; em produção use algo entre 5–95% para liquidez.
-        </p>
-      )}
-    </div>
-  );
-};
 
 interface Props {
   user?: User;
@@ -512,5 +414,6 @@ export default function CreateMarket({ user }: Props) {
     </div>
   );
 }
+
 
 

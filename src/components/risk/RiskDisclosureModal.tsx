@@ -97,7 +97,7 @@ export default function RiskDisclosureModal({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
       e.preventDefault()
-      setBlockedAttempt('Colar foi bloqueado — digite a frase manualmente.')
+      setBlockedAttempt('Colagem bloqueada. Digite a frase manualmente.')
       window.setTimeout(() => setBlockedAttempt(null), 1800)
     }
   }
@@ -111,7 +111,7 @@ export default function RiskDisclosureModal({
       inputType === 'insertFromYank'
     ) {
       ne.preventDefault?.()
-      setBlockedAttempt('Entrada por colagem/arrastar foi bloqueada — digite.')
+      setBlockedAttempt('Entrada por colagem ou arraste foi bloqueada.')
       window.setTimeout(() => setBlockedAttempt(null), 1800)
     }
   }
@@ -186,7 +186,7 @@ export default function RiskDisclosureModal({
                   </div>
                 ) : loadError ? (
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-3">
-                    <p className="font-medium">Não foi possível carregar o termo.</p>
+                    <p className="font-medium">Não conseguimos carregar o termo oficial.</p>
                     <p className="text-xs mb-2">{loadError}</p>
                     {onRetryFetch && (
                       <Button
@@ -203,7 +203,7 @@ export default function RiskDisclosureModal({
                   <ContractRenderer text={termText} />
                 ) : (
                   <p className="text-sm text-slate-600">
-                    Texto do termo não disponível.
+                    O texto oficial do termo não está disponível no momento.
                   </p>
                 )}
               </div>
@@ -215,7 +215,7 @@ export default function RiskDisclosureModal({
                   onCheckedChange={setAcceptance('loss100')}
                   label={
                     <>
-                      Declaro que <strong>posso perder 100%</strong> do valor alocado
+                      Entendo que <strong>posso perder 100%</strong> do valor desta posição
                     </>
                   }
                 />
@@ -224,8 +224,8 @@ export default function RiskDisclosureModal({
                   onCheckedChange={setAcceptance('fees')}
                   label={
                     <>
-                      Entendo <strong>taxas e custos</strong> (7% depósito, 10% saque) e
-                      seu impacto no resultado
+                      Entendo que existem <strong>taxas vigentes da plataforma</strong> e que
+                      elas afetam meu resultado
                     </>
                   }
                 />
@@ -234,8 +234,7 @@ export default function RiskDisclosureModal({
                   onCheckedChange={setAcceptance('notInvestment')}
                   label={
                     <>
-                      Confirmo que opero com <strong>dinheiro que posso perder</strong> e
-                      sem promessa de retorno
+                      Confirmo que vou operar apenas com <strong>dinheiro que posso perder</strong>
                     </>
                   }
                 />
@@ -244,8 +243,8 @@ export default function RiskDisclosureModal({
                   onCheckedChange={setAcceptance('emotional')}
                   label={
                     <>
-                      Reconheço <strong>riscos emocionais</strong> e sinais de compulsão,
-                      e assumo responsabilidade
+                      Reconheço <strong>riscos emocionais</strong> e sinais de compulsão, e vou pausar
+                      se perder o controle
                     </>
                   }
                 />
@@ -254,8 +253,7 @@ export default function RiskDisclosureModal({
                   onCheckedChange={setAcceptance('terms')}
                   label={
                     <>
-                      Declaro que <strong>li e compreendi</strong> este termo e aceito
-                      prosseguir por minha conta e risco
+                      Li o resumo e o termo oficial, e aceito prosseguir por minha conta e risco
                     </>
                   }
                 />
@@ -264,7 +262,7 @@ export default function RiskDisclosureModal({
               {/* CONFIRMAÇÃO ANTI-COLA */}
               <div className="bg-blue-50 rounded-xl p-4 space-y-2">
                 <p className="text-sm font-medium text-blue-900">
-                  Confirmação obrigatória:
+                  Frase obrigatória para liberar o aceite:
                 </p>
                 <p className="text-sm text-blue-800">
                   Digite exatamente:{' '}
@@ -272,7 +270,7 @@ export default function RiskDisclosureModal({
                 </p>
 
                 <Input
-                  placeholder="Digite a frase acima para confirmar"
+                  placeholder="Digite a frase para liberar o botão"
                   value={confirmAnswer}
                   onChange={(e) => setConfirmAnswer(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -291,7 +289,7 @@ export default function RiskDisclosureModal({
 
                 {confirmAnswer && !correctAnswer && !blockedAttempt && (
                   <p className="text-xs text-rose-600">
-                    A frase precisa ser idêntica (mesmas palavras).
+                    A frase precisa estar idêntica para liberar o botão.
                   </p>
                 )}
               </div>

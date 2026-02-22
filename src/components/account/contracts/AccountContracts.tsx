@@ -1,26 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { riskTermsClient, type RiskAcceptance } from "@/app/api/terms/riskTermsClient";
 import { DownloadCloud, FileText, Loader2, RefreshCcw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateTime, maskHash } from "./AccountContracts.utils";
 
 type Props = {
   userId?: string | number;
-};
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toLocaleString("pt-BR");
-};
-
-const maskHash = (hash?: string | null) => {
-  if (!hash) return null;
-  if (hash.length <= 12) return hash;
-  return `${hash.slice(0, 8)}…${hash.slice(-4)}`;
 };
 
 export default function AccountContracts({ userId }: Props) {

@@ -7,6 +7,13 @@ type WalletBalance = {
   available: number;
 };
 
+type WalletSummary = {
+  currency: string;
+  totalDeposited: number;
+  totalWithdrawn: number;
+  totalBought: number;
+};
+
 type LedgerEntry = {
   id: string;
   type: string;
@@ -75,6 +82,11 @@ const parseDecimalMoney = (value: unknown): number => {
   return 0;
 };
 
+const normalizeCurrency = (value: unknown): string => {
+  const raw = String(value ?? '').trim().toUpperCase();
+  return raw || 'BRL';
+};
+
 const toAmountRequest = (value: number): AmountRequest => ({
   amount: (Number.isFinite(value) ? value : 0).toFixed(6)
 });
@@ -91,6 +103,18 @@ const getBalances = async (): Promise<WalletBalance[]> => {
     balance: parseDecimalMoney(item.balance),
     available: parseDecimalMoney(item.available)
   }));
+};
+
+const getSummary = async (): Promise<WalletSummary> => {
+  const raw = await requestWithAuth<any>('/wallet/summary');
+  const source = raw?.data ?? raw;
+
+  return {
+    currency: normalizeCurrency(source?.currency),
+    totalDeposited: parseDecimalMoney(source?.totalDeposited ?? source?.total_deposited),
+    totalWithdrawn: parseDecimalMoney(source?.totalWithdrawn ?? source?.total_withdrawn),
+    totalBought: parseDecimalMoney(source?.totalBought ?? source?.total_bought)
+  };
 };
 
 const getLedger = async ({
@@ -387,6 +411,7 @@ const getReceipt = async (receiptId: string): Promise<Receipt | null> => {
 };
 
 export const walletClient = {
+  getSummary,
   getBalances,
   getLedger,
   createDepositIntent,

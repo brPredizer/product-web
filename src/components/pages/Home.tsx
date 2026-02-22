@@ -354,7 +354,7 @@ export default function Home(): JSX.Element {
                            border-slate-300 text-slate-800 hover:bg-slate-100
                            transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
               >
-                Aprender antes de operar
+                Como funciona antes de operar
               </Button>
             </Link>
           </div>

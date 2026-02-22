@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, page: 'Home' },
   { name: 'Explorar', icon: Compass, page: 'Explore' },
-  { name: 'Aprender', icon: GraduationCap, page: 'Learn' },
+  { name: 'Como funciona', icon: GraduationCap, page: 'Learn' },
   { name: 'Portfólio', icon: Briefcase, page: 'Portfolio' },
   { name: 'Carteira', icon: Wallet, page: 'Wallet' },
 ]
@@ -105,7 +105,9 @@ export default function Header({ currentPage, user, walletAvailableBalance = 0, 
               <>
                 <Link href={createPageUrl('Wallet')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
                   <Wallet className="w-4 h-4 text-slate-600" />
-                  <span className="font-semibold text-slate-900">R$ {Number(walletAvailableBalance || 0).toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">
+                    R$ {Number(walletAvailableBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                 </Link>
 
                 <DropdownMenu>

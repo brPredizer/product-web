@@ -51,7 +51,7 @@ export default function TwoFactorSettingsPage(): JSX.Element {
       setCode('');
     } catch (err) {
       console.error('Update 2FA failed:', err);
-      setError('Nao foi possivel atualizar o 2FA.');
+      setError('Não foi possivel atualizar o 2FA.');
     } finally {
       setSaving(false);
     }

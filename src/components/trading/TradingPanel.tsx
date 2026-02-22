@@ -46,13 +46,19 @@ export default function TradingPanel({
   const [internalSide, setInternalSide] = useState<string>('yes')
   const side = controlledSide ?? internalSide
   const setSide = onSideChange ?? setInternalSide
-  const [amount, setAmount] = useState<string>('')
+  const [amountCents, setAmountCents] = useState<string>('')
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [showRiskModal, setShowRiskModal] = useState<boolean>(false)
   const [pendingTrade, setPendingTrade] = useState<any>(null)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false)
   const rawMarketId = market?.id ?? market?.marketId ?? market?.market_id ?? null
   const marketId = rawMarketId ? String(rawMarketId) : null
+  const formatBrlAmount = (value: number) =>
+    (Number.isFinite(value) ? value : 0).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  const parseAmountMaskToCents = (value: string) => value.replace(/\D/g, '')
 
   const {
     data: acceptance,
@@ -79,7 +85,7 @@ export default function TradingPanel({
 
   const acceptRiskMutation = useMutation({
     mutationFn: async () => {
-      if (!marketId) throw new Error('marketId ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© obrigatÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³rio para registrar aceite.')
+      if (!marketId) throw new Error('marketId é obrigatório para registrar aceite.')
       const snapshot = riskTerm?.text ?? ''
       let termHash: string | null = null
 
@@ -110,7 +116,7 @@ export default function TradingPanel({
       setPendingTrade(null)
     },
     onError: (error: any) => {
-      const message = error?.message || 'NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­vel registrar o aceite.'
+      const message = error?.message || 'Não foi possível registrar o aceite.'
       toast.error(message)
     },
   })
@@ -128,9 +134,11 @@ export default function TradingPanel({
   const yesPriceNum = Number(market?.yes_price ?? 0.5)
   const noPriceNum = Number(market?.no_price ?? (1 - yesPriceNum))
   const price = side === 'yes' ? yesPriceNum : noPriceNum
-  const units = amount && price > 0 ? Math.floor(parseFloat(amount) / price) : 0
+  const amountValue = amountCents ? Number(amountCents) / 100 : 0
+  const amountDisplayValue = amountCents ? formatBrlAmount(amountValue) : ''
+  const units = amountValue > 0 && price > 0 ? Math.floor(amountValue / price) : 0
   const potentialPayout = units * 1
-  const potentialProfit = potentialPayout - (parseFloat(amount) || 0)
+  const potentialProfit = potentialPayout - amountValue
 
   const resolveAcceptanceStatus = async (): Promise<
     { state: 'accepted' | 'missing' | 'error'; errorMessage?: string }
@@ -169,15 +177,15 @@ export default function TradingPanel({
   }
 
   const handleTrade = async () => {
-    if (!amount || parseFloat(amount) <= 0) return
+    if (amountValue <= 0) return
     if (!marketId) {
-      toast.error('NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel identificar o mercado.')
+      toast.error('Não foi possível identificar o mercado.')
       return
     }
 
     const tradeData = {
       side,
-      amount: parseFloat(amount),
+      amount: amountValue,
       contracts: units,
       price,
     }
@@ -197,14 +205,14 @@ export default function TradingPanel({
 
     toast.error(
       acceptanceStatus.errorMessage ||
-        'NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­vel verificar o termo de risco. Tente novamente.'
+        'Não foi possível verificar o termo de risco. Tente novamente.'
     )
   }
   const executeTrade = async (tradeData: any) => {
     setIsLoading(true)
     try {
       await onTrade(tradeData)
-      setAmount('')
+      setAmountCents('')
       setPendingTrade(null)
     } finally {
       setIsLoading(false)
@@ -242,9 +250,9 @@ export default function TradingPanel({
       window.URL.revokeObjectURL(url)
     } catch (error: any) {
       if (error?.status === 404) {
-        toast.error('Nenhum comprovante disponÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel para este mercado.')
+        toast.error('Nenhum comprovante disponível para este mercado.')
       } else {
-        const message = error?.message || 'NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel baixar o comprovante.'
+        const message = error?.message || 'Não foi possível baixar o comprovante.'
         toast.error(message)
       }
     } finally {
@@ -254,7 +262,7 @@ export default function TradingPanel({
 
   const quickAmounts = [10, 50, 100, 500]
   const tradeButtonDisabled =
-    !amount || parseFloat(amount) <= 0 || parseFloat(amount) > userBalance || isLoading
+    amountValue <= 0 || amountValue > userBalance || isLoading
   const tradeButtonLabel = isLoading
     ? 'Processando...'
     : `Comprar ${side === 'yes' ? 'SIM' : 'NÃO'}`
@@ -281,7 +289,7 @@ export default function TradingPanel({
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className={cn(isEmbedded ? 'text-base' : 'text-xl', 'font-bold', side === 'yes' ? 'text-emerald-600' : 'text-slate-900')}>
-            R$ {yesPriceNum.toFixed(2)}
+            R$ {formatBrlAmount(yesPriceNum)}
           </span>
           {!isEmbedded && (
             <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">prob.</span>
@@ -306,7 +314,7 @@ export default function TradingPanel({
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className={cn(isEmbedded ? 'text-base' : 'text-xl', 'font-bold', side === 'no' ? 'text-rose-600' : 'text-slate-900')}>
-            R$ {noPriceNum.toFixed(2)}
+            R$ {formatBrlAmount(noPriceNum)}
           </span>
           {!isEmbedded && (
             <span className="text-[10px] font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">prob.</span>
@@ -326,9 +334,10 @@ export default function TradingPanel({
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
             <Input
-              type="number"
-              value={amount}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
+              type="text"
+              inputMode="numeric"
+              value={amountDisplayValue}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmountCents(parseAmountMaskToCents(e.target.value))}
               placeholder="0,00"
               className="pl-10 h-12 text-lg font-semibold"
             />
@@ -339,7 +348,7 @@ export default function TradingPanel({
           {quickAmounts.map((qa) => (
             <button
               key={qa}
-              onClick={() => setAmount(qa.toString())}
+              onClick={() => setAmountCents(String(qa * 100))}
               className="flex-1 py-2 px-3 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
             >
               R${qa}
@@ -347,23 +356,23 @@ export default function TradingPanel({
           ))}
         </div>
 
-        {amount && parseFloat(amount) > 0 && (
+        {amountValue > 0 && (
           <div className="bg-slate-50 rounded-xl p-4 mb-6 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-slate-600">Contratos</span>
-              <span className="font-semibold text-slate-900">{units}</span>
+              <span className="font-semibold text-slate-900">{units.toLocaleString('pt-BR')}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-600">Preço por contrato</span>
-              <span className="font-semibold text-slate-900">R$ {Number(price).toFixed(2)}</span>
+              <span className="font-semibold text-slate-900">R$ {formatBrlAmount(Number(price))}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-600">Pagamento se acertar</span>
-              <span className="font-semibold text-emerald-600">R$ {potentialPayout.toFixed(2)}</span>
+              <span className="font-semibold text-emerald-600">R$ {formatBrlAmount(potentialPayout)}</span>
             </div>
             <div className="border-t border-slate-200 pt-3 flex justify-between">
               <span className="text-slate-600 font-medium">Ganho potencial</span>
-              <span className="font-bold text-emerald-600">+R$ {potentialProfit.toFixed(2)}</span>
+              <span className="font-bold text-emerald-600">+R$ {formatBrlAmount(potentialProfit)}</span>
             </div>
           </div>
         )}
@@ -372,7 +381,7 @@ export default function TradingPanel({
           <span className="flex items-center gap-1">
             <Info className="w-4 h-4 text-slate-500" /> Saldo disponível
           </span>
-          <span className="font-medium text-slate-900">R$ {userBalance.toFixed(2)}</span>
+          <span className="font-medium text-slate-900">R$ {formatBrlAmount(userBalance)}</span>
         </div>
 
         <Button
@@ -389,7 +398,7 @@ export default function TradingPanel({
         <div className="flex items-start gap-2 mt-4 p-3 bg-amber-50 rounded-lg">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">
-            Cada contrato paga R$1,00 se você acertar o resultado; caso contrário, paga R$0,00. Você pode perder 100% do valor investido.
+            O lado vencedor liquida em R $1,00 por contrato e o lado perdedor em R$0,00. Em caso de perda, você pode perder 100% do valor investido.
           </p>
         </div>
       </div>
@@ -431,4 +440,3 @@ export default function TradingPanel({
     </>
   )
 }
-

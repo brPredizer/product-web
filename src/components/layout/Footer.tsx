@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
-import { Twitter, Instagram, BookOpen, ShieldCheck, LifeBuoy, MessageCircle } from 'lucide-react';
+import { BookOpen, ShieldCheck, LifeBuoy, LinkIcon } from 'lucide-react';
 import { ROUTES } from '@/routes/pages';
+import { API_BASE_URL } from '@/app/api/api';
+import styles from './Footer.module.css';
 
 interface FooterProps {
   variant?: 'default' | 'compact';
@@ -14,50 +16,62 @@ const columns = [
     title: 'Recursos',
     icon: BookOpen,
     links: [
-      { label: 'Aprender', href: ROUTES.learn },
-      { label: 'FAQ', href: '/faq' },
-      { label: 'Política de taxas', href: '/taxas' },
+      { label: 'Como funciona', href: ROUTES.learn },
+      { label: 'FAQ', href: ROUTES.faq },
+      { label: 'Política de taxas', href: ROUTES.fees },
     ],
   },
   {
     title: 'Legal',
     icon: ShieldCheck,
     links: [
-      { label: 'Termos', href: '/termos' },
-      { label: 'Privacidade', href: '/privacidade' },
-      { label: 'Aviso de risco', href: '/aviso-de-risco' },
-      { label: 'Regras de resolução', href: '/regras-de-resolucao' },
+      { label: 'Termos', href: ROUTES.terms },
+      { label: 'Privacidade', href: ROUTES.privacy },
+      { label: 'Aviso de risco', href: ROUTES.riskDisclosure },
+      { label: 'Regras de resolução', href: ROUTES.resolutionRules },
     ],
   },
   {
     title: 'Suporte',
     icon: LifeBuoy,
     links: [
-      { label: 'Central de ajuda', href: '/faq' },
+      { label: 'Central de ajuda', href: ROUTES.helpCenter },
       { label: 'Contato', href: 'mailto:contato@predizer.com' },
     ],
   },
 ];
 
+const SocialIcon = ({ className }: { className: string }) => (
+  <span aria-hidden="true" className={`${styles.socialIcon} ${className}`} />
+);
+
 const socialLinks = [
-  { label: 'X / Twitter', href: 'https://twitter.com', icon: Twitter },
-  { label: 'Instagram', href: 'https://www.instagram.com', icon: Instagram },
+  { label: 'X', href: 'https://x.com/predizerbr', iconClass: styles.iconX },
+  { label: 'Instagram', href: 'https://www.instagram.com/predizerbr', iconClass: styles.iconInstagram },
 ];
 
 export default function Footer({ variant = 'default' }: FooterProps) {
   const isCompact = variant === 'compact';
   const [statusState, setStatusState] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
 
+  const statusUrl = API_BASE_URL
+    ? `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/health`
+    : '';
+
   const checkStatus = async () => {
     try {
       setStatusState('loading');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch('https://predizerapi.onrender.com/', { signal: controller.signal });
+      if (!statusUrl) {
+        setStatusState('error');
+        return;
+      }
+      const res = await fetch(statusUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
       const text = await res.text();
       const cleaned = text.replace(/"/g, '').trim();
-      if (cleaned === 'Product API online') {
+      if (cleaned === 'Healthy') {
         setStatusState('ok');
       } else {
         setStatusState('error');
@@ -85,12 +99,12 @@ export default function Footer({ variant = 'default' }: FooterProps) {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">P</div>
               <div>
                 <p className="text-base font-semibold text-white">Predizer</p>
-                <p className="text-xs text-slate-400">Mercado de probabilidades</p>
+                <p className="text-xs text-slate-400">Mercado de previsões</p>
               </div>
             </div>
 
             <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-300">
-              Mercados de probabilidades com liquidez e regras claras. Operações envolvem risco de perda total;
+              Mercados de previsões com liquidez e regras claras. Operações envolvem risco de perda total;
               use com responsabilidade e consulte sempre as regras de resolução.
             </p>
 
@@ -135,17 +149,17 @@ export default function Footer({ variant = 'default' }: FooterProps) {
 
               <div className="space-y-2.5">
                 <p className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  <MessageCircle className="h-3.5 w-3.5 text-slate-500" /> Social
+                  <LinkIcon className="h-3.5 w-3.5 text-slate-500" /> Social
                 </p>
                 <div className="flex items-center gap-2.5 text-sm text-slate-300">
-                  {socialLinks.map(({ label, href, icon: Icon }) => (
+                  {socialLinks.map(({ label, href, iconClass }) => (
                     <Link
                       key={label}
                       href={href}
                       className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/20 hover:text-white"
                       aria-label={label}
                     >
-                      <Icon className="h-4 w-4" />
+                      <SocialIcon className={iconClass} />
                     </Link>
                   ))}
                 </div>
@@ -157,13 +171,13 @@ export default function Footer({ variant = 'default' }: FooterProps) {
         <div className="mt-8 flex flex-col gap-2.5 border-t border-white/10 pt-5 text-[12px] text-slate-400 md:flex-row md:items-center md:justify-between">
           <p>© {new Date().getFullYear()} Predizer. Todos os direitos reservados.</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Link className="transition hover:text-white" href="/privacidade">
+            <Link className="transition hover:text-white" href={ROUTES.privacy}>
               Privacidade
             </Link>
-            <Link className="transition hover:text-white" href="/termos">
+            <Link className="transition hover:text-white" href={ROUTES.terms}>
               Termos
             </Link>
-            <Link className="transition hover:text-white" href="/aviso-de-risco">
+            <Link className="transition hover:text-white" href={ROUTES.riskDisclosure}>
               Aviso de risco
             </Link>
             <span className="hidden sm:inline text-slate-500">•</span>

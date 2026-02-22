@@ -157,11 +157,11 @@ export default function RevenueProjectionChart({ allTransactions = [], withdrawa
               <p className="text-xs font-medium text-slate-700 mb-2">Breakdown de Taxas</p>
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-600">Taxa Depósitos (2,5%)</span>
+                  <span className="text-slate-600">Taxa Depósitos (4,99%)</span>
                   <span className="font-semibold text-emerald-600">R$ {projectedDepositFees.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-600">Taxa Saques (7,5%)</span>
+                  <span className="text-slate-600">Taxa Saques (7,99%)</span>
                   <span className="font-semibold text-cyan-600">R$ {projectedWithdrawalFees.toFixed(2)}</span>
                 </div>
                 <div className="pt-1.5 border-t border-slate-300 flex justify-between items-center text-xs">

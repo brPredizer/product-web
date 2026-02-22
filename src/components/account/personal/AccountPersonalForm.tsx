@@ -10,83 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { User as UserIcon, Camera, Trash2, Upload, Check, Minus, Plus } from "lucide-react";
-
-const CROP_SIZE = 280; // área de ajuste (quadrado)
-const OUTPUT_SIZE = 512; // tamanho final do avatar
-const ZOOM_MIN = 1;
-const ZOOM_MAX = 3;
-const ZOOM_STEP = 0.12;
-
-function revokeIfBlob(url?: string | null) {
-  if (url && typeof url === "string" && url.startsWith("blob:")) URL.revokeObjectURL(url);
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
-}
-
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = src;
-  });
-}
-
-async function cropToSquare({
-  src,
-  offsetX,
-  offsetY,
-  zoom,
-}: {
-  src: string;
-  offsetX: number;
-  offsetY: number;
-  zoom: number;
-}): Promise<Blob> {
-  const img = await loadImage(src);
-
-  const iw = img.naturalWidth;
-  const ih = img.naturalHeight;
-
-  const baseScale = Math.max(CROP_SIZE / iw, CROP_SIZE / ih);
-  const s = baseScale * zoom;
-
-  const dw = iw * s;
-  const dh = ih * s;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = CROP_SIZE;
-  canvas.height = CROP_SIZE;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas 2D context not available");
-
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--canvas-fill") || "#fff";
-  ctx.fillRect(0, 0, CROP_SIZE, CROP_SIZE);
-
-  const dx = CROP_SIZE / 2 + offsetX - dw / 2;
-  const dy = CROP_SIZE / 2 + offsetY - dh / 2;
-
-  ctx.drawImage(img, dx, dy, dw, dh);
-
-  const outCanvas = document.createElement("canvas");
-  outCanvas.width = OUTPUT_SIZE;
-  outCanvas.height = OUTPUT_SIZE;
-  const outCtx = outCanvas.getContext("2d");
-  if (!outCtx) throw new Error("Canvas 2D context not available");
-  outCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--canvas-fill") || "#fff";
-  outCtx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-  outCtx.drawImage(canvas, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-
-  return await new Promise<Blob>((resolve, reject) => {
-    outCanvas.toBlob((b) => {
-      if (b) resolve(b);
-      else reject(new Error("Failed to create blob"));
-    }, "image/jpeg", 0.92);
-  });
-}
+import {
+  CROP_SIZE,
+  ZOOM_MIN,
+  ZOOM_MAX,
+  ZOOM_STEP,
+  clamp,
+  cropToSquare,
+  loadImage,
+  revokeIfBlob,
+} from "./AccountPersonalForm.utils";
 
 interface AccountPersonalFormProps {
   fullName: string;

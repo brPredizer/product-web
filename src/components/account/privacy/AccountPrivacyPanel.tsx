@@ -4,8 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import AccountContracts from "./AccountContracts";
-import { Bell, Mail, Smartphone } from "lucide-react";
+import AccountContracts from "../contracts/AccountContracts";
+import { Bell, Mail } from "lucide-react";
 
 type Props = {
   userId?: string | number;

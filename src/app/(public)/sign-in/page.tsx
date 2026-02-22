@@ -37,6 +37,10 @@ function SignInPageContent(): JSX.Element {
   const [showPass, setShowPass] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
+  const [isCooldown, setIsCooldown] = useState(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleScriptError, setGoogleScriptError] = useState(false);
@@ -91,7 +95,7 @@ function SignInPageContent(): JSX.Element {
     []
   );
 
-  const translateSignInError = (payload?: any, err?: any): string => {
+  const parseSignInError = (payload?: any, err?: any) => {
     const givenErr = err ?? payload;
     const payloadObj = err ? payload : (payload?.payload ?? payload?.response?.data ?? payload);
 
@@ -140,6 +144,7 @@ function SignInPageContent(): JSX.Element {
       invalid_password: 'Senha inválida.',
       user_not_found: 'Conta não encontrada para este e-mail.',
       email_unconfirmed: 'E-mail não confirmado. Verifique sua caixa de entrada.',
+      email_not_confirmed: 'E-mail não confirmado. Verifique sua caixa de entrada.',
       too_many_requests: 'Muitas tentativas. Aguarde um pouco e tente novamente.',
       account_disabled: 'Conta desativada. Contate o suporte.',
       user_locked_out: 'Conta temporariamente bloqueada por muitas tentativas. Aguarde ou redefina sua senha.',
@@ -147,16 +152,49 @@ function SignInPageContent(): JSX.Element {
       lockout: 'Conta temporariamente bloqueada por muitas tentativas. Aguarde ou redefina sua senha.'
     };
 
-    if (map[norm]) return map[norm];
+    if (map[norm]) return { message: map[norm], key: norm };
 
-    if (norm.includes('invalid_credentials')) return map.invalid_credentials;
+    if (norm.includes('invalid_credentials')) return { message: map.invalid_credentials, key: 'invalid_credentials' };
     if (norm.includes('user_locked_out') || norm.includes('locked_out') || norm.includes('lockout') || norm.includes('locked'))
-      return map.user_locked_out;
-    if (norm.includes('email_unconfirmed') || norm.includes('unconfirmed')) return map.email_unconfirmed;
-    if (norm.includes('too_many') || norm.includes('rate_limit')) return map.too_many_requests;
+      return { message: map.user_locked_out, key: 'locked_out' };
+    if (norm.includes('email_not_confirmed') || norm.includes('email_unconfirmed') || norm.includes('unconfirmed'))
+      return { message: map.email_unconfirmed, key: 'email_not_confirmed' };
+    if (norm.includes('too_many') || norm.includes('rate_limit')) return { message: map.too_many_requests, key: 'too_many_requests' };
 
-    return raw;
+    return { message: raw, key: norm || 'unknown' };
   };
+
+  const lastAutoResendRef = useRef<string>('');
+
+  const handleResendConfirmation = useCallback(
+    async (targetEmail?: string, options?: { auto?: boolean }) => {
+      const resolvedEmail = String(targetEmail ?? email).trim();
+      if (!resolvedEmail || !resolvedEmail.includes('@')) {
+        setResendStatus('error');
+        return;
+      }
+
+      if (options?.auto && lastAutoResendRef.current === resolvedEmail) return;
+      if (resendStatus === 'loading') return;
+
+      setResendStatus('loading');
+      try {
+        await authClient.resendConfirmationEmail({ email: resolvedEmail });
+        setResendStatus('sent');
+        if (options?.auto) lastAutoResendRef.current = resolvedEmail;
+      } catch (err) {
+        console.error('Falha ao reenviar confirmação:', err);
+        setResendStatus('error');
+      }
+    },
+    [email, resendStatus]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, []);
 
   const handleGoogleCredential = useCallback(
     async (response: any) => {
@@ -254,6 +292,12 @@ function SignInPageContent(): JSX.Element {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setErrorKey(null);
+    setResendStatus('idle');
+
+    if (isCooldown) {
+      return;
+    }
 
     if (!email.trim() || !email.includes('@')) {
       setError('Informe um e-mail válido.');
@@ -267,19 +311,46 @@ function SignInPageContent(): JSX.Element {
     setLoading(true);
     try {
       await authClient.signIn({ email, password, useCookies, useSessionCookies });
+      setIsCooldown(false);
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
       router.push(createPageUrl('Home'));
     } catch (err) {
       console.error('Falha no login:', err);
-      setError(translateSignInError(err));
+      const parsed = parseSignInError(err);
+      setError(parsed.message);
+      setErrorKey(parsed.key);
+      setIsCooldown(true);
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = setTimeout(() => {
+        setIsCooldown(false);
+        cooldownTimerRef.current = null;
+      }, 60 * 1000);
+      if (parsed.key === 'email_not_confirmed' || parsed.key === 'email_unconfirmed') {
+        handleResendConfirmation(email, { auto: true });
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const isEmailUnconfirmed =
+    errorKey === 'email_not_confirmed' || errorKey === 'email_unconfirmed';
+
+  const unconfirmedMessage = (() => {
+    if (resendStatus === 'loading') return 'Reenviando confirmação...';
+    if (resendStatus === 'sent') return 'E-mail não confirmado. Verifique sua caixa de entrada ou pasta de spam.';
+    if (resendStatus === 'error') return 'E-mail não confirmado. Falha ao reenviar.';
+    return error || 'E-mail não confirmado.';
+  })();
+
+
   if (isLoadingAuth) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">
-        Verificando sessÃ£o...
+        Verificando sessão...
       </div>
     );
   }
@@ -306,7 +377,7 @@ function SignInPageContent(): JSX.Element {
         }}
       />
 
-      <div className="relative mx-auto max-w-6xl w-full">
+      <div className="relative mx-auto max-w-5xl w-full">
         <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
           <div className="grid grid-cols-1 md:grid-cols-2 items-stretch">
             {/* Lado esquerdo */}
@@ -408,17 +479,23 @@ function SignInPageContent(): JSX.Element {
                   </div>
                 </div>
 
-                {error && (
+                {error && !isEmailUnconfirmed && (
                   <div className="flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
                     <AlertCircle className="mt-0.5 h-4 w-4" />
                     <p>{error}</p>
                   </div>
                 )}
 
+                {isEmailUnconfirmed && (
+                  <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <span className="leading-snug">{unconfirmedMessage}</span>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base"
-                  disabled={loading}
+                  disabled={loading || isCooldown}
                 >
                   {loading ? 'Entrando...' : 'Entrar'}
                 </Button>

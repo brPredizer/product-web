@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Mail } from 'lucide-react';
 import { authClient } from '@/app/api/auth';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 function translateResetError(payload: any, err: any) {
   let raw =
@@ -249,113 +251,118 @@ export default function ResetPasswordCodePage(): JSX.Element {
   );
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-10">
-      <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
-      <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Header />
+      <main className="relative flex-1 w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center px-4 py-20 md:py-28">
+        <div className="absolute -top-24 -right-32 h-[360px] w-[360px] rounded-full bg-emerald-200/35 blur-3xl" />
+        <div className="absolute -bottom-24 -left-32 h-[360px] w-[360px] rounded-full bg-emerald-100/45 blur-3xl" />
 
-      <div className="relative mx-auto max-w-xl w-full">
-        <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
-          <div className="p-8">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-slate-900">Redefinir senha</h1>
-              <p className="mt-2 text-sm text-slate-600">
-                {step === 'email' ? 'Informe seu e-mail para receber o código.' : 'Informe o código que recebeu por e-mail para continuar.'}
-              </p>
-            </div>
-
-            {/* EMAIL */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-700">E-mail</label>
-
-                {step === 'code' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null);
-                      setStep('email');
-                      setSegments(Array(MAX_CHARS).fill(''));
-                    }}
-                    className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                  >
-                    Trocar e-mail
-                  </button>
-                )}
+        <div className="relative mx-auto max-w-xl w-full">
+          <div className="overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-30px_rgba(2,6,23,0.22)] border border-slate-200/60">
+            <div className="p-8">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-slate-900">Redefinir senha</h1>
+                <p className="mt-2 text-sm text-slate-600">
+                  {step === 'email' ? 'Informe seu e-mail para receber o código.' : 'Informe o código que recebeu por e-mail para continuar.'}
+                </p>
               </div>
 
-              <div className="mt-2 flex gap-3 items-center">
-                <div className="relative flex-1">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    type="email"
-                    autoComplete="email"
-                    placeholder="voce@exemplo.com"
-                    className={`h-11 pl-10 rounded-xl ${step === 'code' ? 'bg-slate-50 text-slate-600' : ''}`}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={step === 'code'}
-                    readOnly={step === 'code'}
-                  />
-                </div>
+              {/* EMAIL */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-700">E-mail</label>
 
-                {step === 'email' && (
-                  <div className="w-44">
+                  {step === 'code' && (
                     <button
                       type="button"
-                      onClick={openConfirm}
-                      className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                      disabled={sending || !email}
+                      onClick={() => {
+                        setError(null);
+                        setStep('email');
+                        setSegments(Array(MAX_CHARS).fill(''));
+                      }}
+                      className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
                     >
-                      {sending ? 'Enviando...' : 'Enviar código'}
+                      Trocar e-mail
                     </button>
+                  )}
+                </div>
+
+                <div className="mt-2 flex gap-3 items-center">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="voce@exemplo.com"
+                      className={`h-11 pl-10 rounded-xl ${step === 'code' ? 'bg-slate-50 text-slate-600' : ''}`}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={step === 'code'}
+                      readOnly={step === 'code'}
+                    />
                   </div>
-                )}
-              </div>
 
-              {sent && step === 'code' && <p className="mt-2 text-sm text-emerald-700">Código enviado para <strong>{email}</strong>.</p>}
-            </div>
-
-            {/* CÓDIGO (só aparece depois do modal/confirmar envio) */}
-            {step === 'code' && (
-              <form className="mt-6 space-y-4" onSubmit={handleContinue}>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-slate-700">Código</label>
-
-                    <button type="button" onClick={handleResend} className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed" disabled={resendLoading}>
-                      {resendLoading ? 'Reenviando...' : 'Reenviar código'}
-                    </button>
-                  </div>
-
-                  <CodeInputs />
-
-                  {error && (
-                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                      <AlertCircle className="mt-0.5 h-4 w-4" />
-                      <p>{error}</p>
+                  {step === 'email' && (
+                    <div className="w-44">
+                      <button
+                        type="button"
+                        onClick={openConfirm}
+                        className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                        disabled={sending || !email}
+                      >
+                        {sending ? 'Enviando...' : 'Enviar código'}
+                      </button>
                     </div>
                   )}
                 </div>
 
-                <Button type="submit" className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base" disabled={loading}>
-                  {loading ? 'Continuando...' : 'Continuar'}
-                </Button>
-              </form>
-            )}
-
-            {step === 'email' && error && (
-              <div className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                <AlertCircle className="mt-0.5 h-4 w-4" />
-                <p>{error}</p>
+                {sent && step === 'code' && <p className="mt-2 text-sm text-emerald-700">Código enviado para <strong>{email}</strong>.</p>}
               </div>
-            )}
 
-            <div className="mt-6 text-center text-sm text-slate-600">
-              <Link href="/sign-in" className="font-semibold text-emerald-700 hover:text-emerald-800">Voltar para login</Link>
+              {/* CÓDIGO (só aparece depois do modal/confirmar envio) */}
+              {step === 'code' && (
+                <form className="mt-6 space-y-4" onSubmit={handleContinue}>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-slate-700">Código</label>
+
+                      <button type="button" onClick={handleResend} className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed" disabled={resendLoading}>
+                        {resendLoading ? 'Reenviando...' : 'Reenviar código'}
+                      </button>
+                    </div>
+
+                    <CodeInputs />
+
+                    {error && (
+                      <div className="mt-3 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        <AlertCircle className="mt-0.5 h-4 w-4" />
+                        <p>{error}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button type="submit" className="h-11 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-base" disabled={loading}>
+                    {loading ? 'Continuando...' : 'Continuar'}
+                  </Button>
+                </form>
+              )}
+
+              {step === 'email' && error && (
+                <div className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  <AlertCircle className="mt-0.5 h-4 w-4" />
+                  <p>{error}</p>
+                </div>
+              )}
+
+              <div className="mt-6 text-center text-sm text-slate-600">
+                <Link href="/sign-in" className="font-semibold text-emerald-700 hover:text-emerald-800">Voltar para login</Link>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+      </main>
+      <Footer />
 
       {/* MODAL (aparece antes de liberar os campos de código) */}
       {showConfirmModal && (

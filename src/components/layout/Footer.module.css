@@ -1,0 +1,22 @@
+.socialIcon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+.iconX {
+  -webkit-mask-image: url('/icons/x.svg');
+  mask-image: url('/icons/x.svg');
+}
+
+.iconInstagram {
+  -webkit-mask-image: url('/icons/instagram.svg');
+  mask-image: url('/icons/instagram.svg');
+}

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { walletClient } from "@/app/api/wallet";
 import { Button } from "@/components/ui/button";
 import StatsCard from "@/components/ui/StatsCard";
-import { Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, CreditCard, Clock } from "lucide-react";
+import { Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Clock } from "lucide-react";
 import { formatCurrencyValue, mapReceipts } from "./helpers";
 import TransactionRow from "./TransactionRow";
 import ReceiptModal from "./ReceiptModal";
@@ -38,12 +38,19 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     },
   });
 
-  const ledgerQuery = useQuery({
-    queryKey: ["wallet-ledger", user?.id],
+  const summaryQuery = useQuery({
+    queryKey: ["wallet-summary", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const res = await (walletClient as any).getLedger?.();
-      return res ?? { entries: [], nextCursor: null };
+      const res = await (walletClient as any).getSummary?.();
+      return (
+        res ?? {
+          currency: "BRL",
+          totalDeposited: 0,
+          totalWithdrawn: 0,
+          totalBought: 0,
+        }
+      );
     },
   });
 
@@ -65,24 +72,19 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
   }, [balancesQuery.data]);
 
   const totals = useMemo(() => {
-    const raw = ledgerQuery.data as any;
-    const entries = Array.isArray(raw) ? raw : raw?.entries ?? raw?.data?.entries ?? raw?.data ?? [];
-    let deposited = 0;
-    let withdrawn = 0;
-
-    (entries || []).forEach((entry: any) => {
-      const amount = Number(entry?.amount ?? 0) || 0;
-      const type = String(entry?.type || "").toUpperCase();
-      if (type.includes("DEPOSIT")) deposited += amount;
-      if (type.includes("WITHDRAWAL")) withdrawn += amount;
-    });
+    const raw = summaryQuery.data as any;
+    const currency = String(raw?.currency || "BRL").toUpperCase();
+    const deposited = Number(raw?.totalDeposited ?? 0) || 0;
+    const withdrawn = Number(raw?.totalWithdrawn ?? 0) || 0;
+    const bought = Number(raw?.totalBought ?? 0) || 0;
 
     return {
+      currency,
       deposited,
       withdrawn,
-      wagered: Number(user?.total_wagered ?? 0) || 0,
+      bought,
     };
-  }, [ledgerQuery.data, user?.total_wagered]);
+  }, [summaryQuery.data]);
 
   const transactions = useMemo(() => {
     const rawReceipts = receiptsQuery.data as any;
@@ -92,7 +94,7 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
     return mapReceipts(items);
   }, [receiptsQuery.data]);
 
-  const isLoading = balancesQuery.isLoading || ledgerQuery.isLoading || receiptsQuery.isLoading;
+  const isLoading = balancesQuery.isLoading || summaryQuery.isLoading || receiptsQuery.isLoading;
 
   const handleOpenReceipt = (id: string | null) => {
     if (!id) return;
@@ -158,9 +160,9 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
-          <StatsCard title="Total Depositado" value={formatCurrencyValue(totals.deposited, "BRL")} icon={ArrowDownCircle} />
-          <StatsCard title="Total Sacado" value={formatCurrencyValue(totals.withdrawn, "BRL")} icon={ArrowUpCircle} />
-          <StatsCard title="Total Apostado" value={formatCurrencyValue(totals.wagered, "BRL")} icon={CreditCard} />
+          <StatsCard title="Total Depositado" value={formatCurrencyValue(totals.deposited, totals.currency)} icon={ArrowDownCircle} />
+          <StatsCard title="Total Sacado" value={formatCurrencyValue(totals.withdrawn, totals.currency)} icon={ArrowUpCircle} />
+          <StatsCard title="Total Comprado" value={formatCurrencyValue(totals.bought, totals.currency)} icon={ShoppingCart} />
         </div>
 
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 mb-8">
@@ -169,13 +171,13 @@ export default function WalletView({ user, refreshUser }: WalletProps) {
             <div className="flex items-center gap-2">
               <ArrowDownCircle className="w-4 h-4 text-emerald-600" />
               <span className="text-emerald-700">
-                Depósito: <strong>2,5%</strong> do valor
+                Depósito: <strong>4,99%</strong> do valor
               </span>
             </div>
             <div className="flex items-center gap-2">
               <ArrowUpCircle className="w-4 h-4 text-emerald-600" />
               <span className="text-emerald-700">
-                Saque: <strong>7,5%</strong> do valor
+                Saque: <strong>7,99%</strong> do valor
               </span>
             </div>
           </div>

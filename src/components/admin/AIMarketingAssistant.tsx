@@ -208,7 +208,7 @@ export default function AIMarketingAssistant({ markets = [], contentPosts = [], 
             <div>
               <label className="text-sm font-medium text-slate-700 mb-2 block">Título</label>
               <Input
-                placeholder="Ex: O dólar vai fechar acima de R$6,00 em Julho 2025?"
+                placeholder="Ex: O dólar vai fechar acima de R$ 6,00 em Julho 2025?"
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
               />

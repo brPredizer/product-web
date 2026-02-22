@@ -15,12 +15,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { User as UserIcon, Home as HomeIcon, Shield, CreditCard } from "lucide-react";
-import AccountSidebar from "@/components/account/AccountSidebar";
-import AccountPersonalForm from "@/components/account/AccountPersonalForm";
-import AccountAddressForm from "@/components/account/AccountAddressForm";
-import AccountSecurityForm from "@/components/account/AccountSecurityForm";
-import AccountPaymentsForm from "@/components/account/AccountPaymentsForm";
-import AccountPrivacyPanel from "@/components/account/AccountPrivacyPanel";
+import AccountSidebar from "@/components/account/sidebar/AccountSidebar";
+import AccountPersonalForm from "@/components/account/personal/AccountPersonalForm";
+import AccountAddressForm from "@/components/account/address/AccountAddressForm";
+import AccountSecurityForm from "@/components/account/security/AccountSecurityForm";
+import AccountPaymentsForm from "@/components/account/payments/AccountPaymentsForm";
+import AccountPrivacyPanel from "@/components/account/privacy/AccountPrivacyPanel";
 import { fetchViaCep } from "@/utils/viacep";
 
 type User = any;
@@ -270,7 +270,7 @@ export default function Account({ user, refreshUser }: { user?: User; refreshUse
         try {
             const data = await fetchViaCep(cep);
             if (!data) {
-                toast.error("CEP nao encontrado");
+                toast.error("CEP não encontrado");
                 return;
             }
 

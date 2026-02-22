@@ -4,7 +4,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   CheckCircle2,
-  CreditCard,
+  ShoppingCart,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -44,12 +44,12 @@ const typeConfig: any = {
     label: "Taxa",
   },
   buy: {
-    icon: CreditCard,
+    icon: ShoppingCart,
     color: "text-blue-600 bg-blue-100",
     label: "Compra",
   },
   sell: {
-    icon: CreditCard,
+    icon: ShoppingCart,
     color: "text-purple-600 bg-purple-100",
     label: "Venda",
   },
