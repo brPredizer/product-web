@@ -9,14 +9,14 @@ import { ArrowRight, CircleHelp, FileText, Mail, Shield } from "lucide-react";
 const helpCards = [
   {
     title: "Perguntas frequentes",
-    description: "Respostas rapidas sobre operacao, risco, liquidez e resolucao de mercados.",
+    description: "Respostas rápidas sobre operação, risco, liquidez e resolução de mercados.",
     href: ROUTES.faq,
-    cta: "Ir para FAQ",
+    cta: "Ir para o FAQ",
     icon: CircleHelp,
   },
   {
     title: "Documentos oficiais",
-    description: "Consulte termos, privacidade, taxas, aviso de risco e regras de resolucao.",
+    description: "Consulte termos, privacidade, taxas, aviso de risco e regras de resolução.",
     href: ROUTES.terms,
     cta: "Abrir documentos legais",
     icon: FileText,
@@ -31,11 +31,11 @@ const helpCards = [
 ];
 
 const legalLinks = [
-  { label: "Politica de taxas", href: ROUTES.fees },
+  { label: "Política de taxas", href: ROUTES.fees },
   { label: "Termos de uso", href: ROUTES.terms },
-  { label: "Politica de privacidade", href: ROUTES.privacy },
+  { label: "Política de privacidade", href: ROUTES.privacy },
   { label: "Aviso de risco", href: ROUTES.riskDisclosure },
-  { label: "Regras de resolucao", href: ROUTES.resolutionRules },
+  { label: "Regras de resolução", href: ROUTES.resolutionRules },
 ];
 
 export default function HelpCenterPage(): JSX.Element {
@@ -49,7 +49,7 @@ export default function HelpCenterPage(): JSX.Element {
           </Badge>
           <h1 className="mt-4 text-lg font-semibold text-slate-900 sm:text-xl">Central de ajuda</h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-700 sm:text-base">
-            Encontre caminhos rapidos para suporte, FAQ e documentos oficiais da Predizer.
+            Encontre caminhos rápidos para suporte, FAQ e documentos oficiais da Predizer.
           </p>
         </section>
 

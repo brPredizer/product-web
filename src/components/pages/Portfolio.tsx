@@ -123,7 +123,7 @@ const toErrorInfo = (error: unknown) => {
     return {
       status: undefined as number | undefined,
       title: undefined as string | undefined,
-      message: 'Não foi possivel carregar os dados do portfolio.',
+      message: 'Não foi possível carregar os dados do portfólio.',
       unauthorized: false
     };
   }
@@ -135,7 +135,7 @@ const toErrorInfo = (error: unknown) => {
   const message =
     typeof anyError.message === 'string' && anyError.message.trim()
       ? anyError.message
-      : 'Não foi possível carregar os dados do portfolio.';
+      : 'Não foi possível carregar os dados do portfólio.';
   const unauthorized = status === 401 || title === 'invalid_token';
 
   return { status, title, message, unauthorized };
@@ -357,8 +357,8 @@ export default function Portfolio({ user }: PortfolioProps) {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-8 max-w-md w-full text-center">
           <Briefcase className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">Acesse seu Portfolio</h2>
-          <p className="text-slate-500 mb-6">Faca login para ver suas posicoes e historico.</p>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Acesse seu Portfólio</h2>
+          <p className="text-slate-500 mb-6">Faça login para ver suas posições e histórico.</p>
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700"
             onClick={() => router.push('/sign-in')}
@@ -377,7 +377,7 @@ export default function Portfolio({ user }: PortfolioProps) {
           <Briefcase className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Sessão expirada</h2>
           <p className="text-slate-500 mb-6">
-            Sua autenticação   e mais valida. Entre novamente para continuar.
+            Sua autenticação não é mais válida. Entre novamente para continuar.
           </p>
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700"
@@ -395,7 +395,7 @@ export default function Portfolio({ user }: PortfolioProps) {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-8 max-w-md w-full text-center">
           <XCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">Falha ao carregar portfolio</h2>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Falha ao carregar portfólio</h2>
           <p className="text-slate-500 mb-6">{initialErrorInfo.message}</p>
           <Button
             className="w-full bg-slate-900 hover:bg-slate-800"
@@ -416,13 +416,13 @@ export default function Portfolio({ user }: PortfolioProps) {
     <div className="min-h-screen bg-slate-50 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Meu Portfolio</h1>
-          <p className="text-slate-500 mt-1">Acompanhe suas posicoes e resultados</p>
+          <h1 className="text-2xl font-bold text-slate-900">Meu Portfólio</h1>
+          <p className="text-slate-500 mt-1">Acompanhe suas posições e resultados</p>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatsCard
-            title="Posicoes Ativas"
+            title="Posições Ativas"
             value={summaryActivePositions}
             icon={Briefcase}
           />
@@ -456,7 +456,7 @@ export default function Portfolio({ user }: PortfolioProps) {
                 setActivePage(1);
                 setClosedPage(1);
               }}
-              placeholder="Buscar por titulo do mercado"
+              placeholder="Buscar por título do mercado"
               className="lg:flex-1"
             />
             <DropdownMenu modal={false}>
@@ -558,7 +558,7 @@ export default function Portfolio({ user }: PortfolioProps) {
               Encerradas ({closedTotal})
             </TabsTrigger>
             <TabsTrigger value="fills" className="data-[state=active]:bg-white">
-              Historico ({fillsTotal})
+              Histórico ({fillsTotal})
             </TabsTrigger>
           </TabsList>
 
@@ -605,8 +605,8 @@ export default function Portfolio({ user }: PortfolioProps) {
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                 <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">Sem posicoes ativas</h3>
-                <p className="text-slate-500 mb-6">Explore os mercados e faca sua primeira operacao.</p>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">Sem posições ativas</h3>
+                <p className="text-slate-500 mb-6">Explore os mercados e faça sua primeira operação.</p>
                 <Link href={createPageUrl('Explore')}>
                   <Button className="bg-emerald-600 hover:bg-emerald-700">
                     Explorar Mercados
@@ -661,8 +661,8 @@ export default function Portfolio({ user }: PortfolioProps) {
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                 <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">Nenhum historico</h3>
-                <p className="text-slate-500">Suas posicoes encerradas aparecerao aqui.</p>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">Nenhum histórico</h3>
+                <p className="text-slate-500">Suas posições encerradas aparecerão aqui.</p>
               </div>
             )}
           </TabsContent>
@@ -697,11 +697,11 @@ export default function Portfolio({ user }: PortfolioProps) {
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                 <History className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">Nenhuma movimentacao encontrada</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">Nenhuma movimentação encontrada</h3>
                 <p className="text-slate-500">
                   {hasTopHistoryFilters
                     ? 'Nenhum item corresponde aos filtros selecionados.'
-                    : 'O historico de movimentacoes aparecera aqui.'}
+                    : 'O histórico de movimentações aparecerá aqui.'}
                 </p>
               </div>
             )}
@@ -900,7 +900,7 @@ function FillCard({
         <MetricItem label="Bruto" value={formatCurrencyBr(fill.grossAmount)} />
         <MetricItem label="Taxa" value={formatCurrencyBr(fill.feeAmount)} />
         <MetricItem
-          label="Liquido"
+          label="Líquido"
           value={formatSignedCurrencyBr(fill.netAmount)}
           valueClassName={netPositive ? 'text-emerald-600' : 'text-rose-600'}
         />
@@ -961,14 +961,14 @@ function PaginationControls({
           Anterior
         </Button>
         <span className="text-sm text-slate-500 px-2">
-          Pagina {safePage} de {totalPages}
+          Página {safePage} de {totalPages}
         </span>
         <Button
           variant="outline"
           onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
           disabled={safePage >= totalPages || isFetching}
         >
-          Proxima
+          Próxima
         </Button>
       </div>
     </div>

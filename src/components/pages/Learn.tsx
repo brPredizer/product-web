@@ -57,9 +57,9 @@ const concepts: ConceptItem[] = [
   },
   {
     icon: ShieldCheck,
-    title: "SIM / NÃO",
+    title: "SIM/NÃO",
     summary:
-      "Cada mercado tem dois lados: SIM e NÃO. O lado vencedor paga R$ 1,00 por contrato na resolução.",
+      "Cada mercado tem dois lados: SIM/NÃO. O lado vencedor paga R$ 1,00 por contrato na resolução.",
     details:
       "Se o evento acontece, SIM vence. Se o evento não acontece, NÃO vence.",
   },
@@ -85,7 +85,7 @@ const steps: StepItem[] = [
     step: "02",
     title: "Leia a probabilidade",
     description: "Compare o preço atual com a sua visão de probabilidade.",
-    linkLabel: "Como ler probabilidades",
+    linkLabel: "Como ler as probabilidades",
     linkHref: "#conceitos",
   },
   {
@@ -138,7 +138,7 @@ const faqItems: Array<{ question: string; answer: React.ReactNode }> = [
       "A resolução usa critérios e fonte publicados antes da abertura do mercado.",
   },
   {
-    question: "Qual o mínimo para começar?",
+    question: "Qual é o mínimo para começar?",
     answer:
       "Você pode começar com valor baixo. O ideal é iniciar pequeno até dominar a dinâmica de posição e risco.",
   },
@@ -162,7 +162,7 @@ export default function Learn(): JSX.Element {
             <ul className="mt-3 grid gap-2 text-sm text-slate-100 sm:grid-cols-3">
               <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">SIM paga R$ 1,00 se o evento ocorrer.</li>
               <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">NÃO paga R$ 1,00 se o evento não ocorrer.</li>
-              <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">Preço representa a probabilidade implícita.</li>
+              <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">O preço representa a probabilidade implícita.</li>
             </ul>
           </div>
         </div>
@@ -249,7 +249,7 @@ export default function Learn(): JSX.Element {
                 </li>
                 <li className="flex items-center justify-between gap-3">
                   <span>Se SIM vencer</span>
-                  <strong className="text-emerald-700">Recebe R$ 100,00 (lucro R$ 35,00)</strong>
+                  <strong className="text-emerald-700">Recebe R$ 100,00 (lucro de R$ 35,00)</strong>
                 </li>
                 <li className="flex items-center justify-between gap-3">
                   <span>Se NÃO vencer</span>
@@ -296,7 +296,7 @@ export default function Learn(): JSX.Element {
               <div>
                 <h2 className="text-xl font-semibold text-amber-900">Aviso de risco</h2>
                 <p className="mt-2 text-sm leading-relaxed text-amber-800">
-                  Mercado de previsão envolve risco de perda total. Defina limites e opere apenas com valor que você pode perder sem afetar seu orçamento.
+                  Mercado de previsão envolve risco de perda total. Defina limites e opere apenas com um valor que você pode perder sem afetar o seu orçamento.
                 </p>
                 <Link
                   href={ROUTES.riskDisclosure}
@@ -364,7 +364,7 @@ export default function Learn(): JSX.Element {
                   variant="outline"
                   className="w-full border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto"
                 >
-                  Fazer Depósito
+                  Fazer depósito
                   <ListChecks className="ml-2 h-4 w-4" />
                 </Button>
               </Link>

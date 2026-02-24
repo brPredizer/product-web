@@ -29,7 +29,7 @@ const faqGroups: FaqGroup[] = [
       {
         question: "O que o preço da posição significa na prática?",
         answer:
-          "O preço representa a probabilidade implícita (aproximada) do resultado acontecer, considerando o que o mercado está precificando naquele momento. Ex.: R$ 0,62 sugere ~62%.\n\nImportante: isso não é “verdade”, é consenso do mercado naquele instante. Notícias, volume e sentimento podem mudar o preço rapidamente.",
+          "O preço representa a probabilidade implícita (aproximada) do resultado acontecer, considerando o que o mercado está precificando naquele momento. Ex.: R$ 0,62 sugere cerca de 62%.\n\nImportante: isso não é “verdade”, é consenso do mercado naquele instante. Notícias, volume e sentimento podem mudar o preço rapidamente.",
       },
       {
         question: "Qual a diferença entre posição SIM e posição NÃO?",
@@ -75,7 +75,7 @@ const faqGroups: FaqGroup[] = [
       {
         question: "A plataforma lucra quando eu perco?",
         answer:
-          "Não. A receita da plataforma vem de taxas operacionais (ex.: negociação, depósito/saque, ou outras taxas descritas na Política de taxas).\n\nSeu resultado (ganho/perda) depende do mercado e da sua decisão — não de uma “casa” jogando contra você.",
+          "Não. A receita da plataforma vem de taxas operacionais (ex.: negociação, depósito/saque, ou outras taxas descritas na Política de taxas).\n\nSeu resultado (ganho/perda) depende do mercado e da sua decisão — não de uma plataforma jogando contra você.",
       },
       {
         question: "O mercado é investimento garantido?",
@@ -209,7 +209,7 @@ export default function FaqPage(): JSX.Element {
                   href={ROUTES.fees}
                   className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 sm:text-base"
                 >
-                  Politica de taxas
+                  Política de taxas
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>

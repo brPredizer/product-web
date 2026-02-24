@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ROUTES } from "@/routes/pages";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileCheck2, Mail } from "lucide-react";
 import type { LegalPageContent } from "./legalContent";
 

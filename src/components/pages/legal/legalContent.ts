@@ -22,7 +22,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
   fees: {
     title: "Política de taxas",
     subtitle:
-      "Entenda quando cobramos taxas, por que elas existem e onde consultar os valores vigentes antes de confirmar uma operação. Valores atuais: depósito R$ 4,99 e saque R$ 7,99.",
+      "Entenda quando cobramos taxas, por que elas existem e onde consultar os valores vigentes antes de confirmar uma operação. Valores atuais: depósito 4,99% e saque 7,99%.",
     updatedAt: "22 de fevereiro de 2026",
     sections: [
       {
@@ -30,7 +30,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         paragraphs: [
           "A Predizer cobra taxas operacionais para manter o funcionamento da plataforma, incluindo custos de pagamento, prevenção a fraudes, liquidação, suporte e infraestrutura.",
           "Sempre que houver cobrança de taxa, a informação é exibida de forma clara antes da confirmação da operação. Você decide prosseguir somente após visualizar o custo total.",
-          "As taxas vigentes nesta data são: depósito R$ 4,99 e saque R$ 7,99. Esses valores podem ser atualizados conforme custos operacionais e regras de provedores.",
+          "As taxas vigentes nesta data são: depósito 4,99% e saque 7,99%. Esses valores podem ser atualizados conforme custos operacionais e regras de provedores.",
         ],
       },
       {
@@ -39,8 +39,8 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
           "As taxas podem incidir conforme o fluxo e o serviço utilizado. Alguns exemplos comuns estão abaixo.",
         ],
         bullets: [
-          "Depósito: taxa fixa atual de R$ 4,99, exibida antes da confirmação do depósito.",
-          "Saque: taxa fixa atual de R$ 7,99, exibida antes do envio da solicitação de saque.",
+          "Depósito: taxa fixa atual de 4,99%, exibida antes da confirmação do depósito.",
+          "Saque: taxa fixa atual de 7,99%, exibida antes do envio da solicitação de saque.",
           "Negociação (compra/venda): quando aplicável, taxa por execução/negociação exibida no momento da ordem.",
           "Serviços financeiros adicionais: quando existirem, são informados diretamente no fluxo antes da confirmação.",
         ],
@@ -62,8 +62,8 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
       {
         title: "5. Estornos, cancelamentos e divergências",
         paragraphs: [
-          "Quando houver estorno/cancelamento permitido por regras do método de pagamento e do caso concreto, o tratamento de taxas pode variar conforme custos já incorridos e regras do provedor.",
-          "Se você identificar divergência, pode solicitar revisão pelos canais oficiais. Ao avaliar, podemos solicitar dados adicionais para auditoria e prevenção de fraude.",
+          "Quando houver estorno/cancelamento permitido pelas regras do método de pagamento e do caso concreto, o tratamento de taxas pode variar conforme custos já incorridos e regras do provedor.",
+          "Se você identificar divergência, pode solicitar revisão pelos canais oficiais. Ao avaliar, podemos solicitar dados adicionais para auditoria e prevenção a fraudes.",
         ],
       },
     ],
@@ -80,7 +80,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         paragraphs: [
           "Ao acessar ou usar a Predizer, você declara que leu e concorda com estes Termos, com a Política de Privacidade, Aviso de Risco, Política de Taxas e Regras de Resolução.",
           "A Predizer oferece um ambiente digital para negociação de contratos de previsão, com critérios e regras definidos previamente em cada mercado.",
-          "Você opera por sua conta e risco, e é responsável por avaliar se o serviço é adequado ao seu perfil e objetivos.",
+          "Você opera por sua conta e risco e é responsável por avaliar se o serviço é adequado ao seu perfil e objetivos.",
         ],
       },
       {
@@ -102,7 +102,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         ],
         bullets: [
           "Proteger senha, dispositivos e métodos de autenticação.",
-          "Não tentar explorar falhas, automatizações abusivas, scraping agressivo ou ataques.",
+          "Não tentar explorar falhas, automações abusivas, scraping agressivo ou ataques.",
           "Não manipular preços, liquidez, resolução, fontes ou qualquer mecanismo do sistema.",
           "Não usar a plataforma para fins ilícitos, fraudes, lavagem de dinheiro ou violação de direitos de terceiros.",
         ],
@@ -110,7 +110,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
       {
         title: "4. Operações, disponibilidade e limites",
         paragraphs: [
-          "A Predizer pode definir limites operacionais por segurança (ex.: limites de depósito/saque, volume, horários, verificações adicionais).",
+          "A Predizer pode definir limites operacionais por segurança (ex.: limites de depósito/saque, volume, horários e verificações adicionais).",
           "A disponibilidade do serviço pode variar por manutenção, incidentes, dependências de terceiros e condições de rede. Trabalhamos para minimizar interrupções, mas não garantimos funcionamento ininterrupto.",
         ],
       },
@@ -125,7 +125,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         title: "6. Propriedade intelectual e uso de conteúdo",
         paragraphs: [
           "A marca, identidade visual, interfaces, textos e demais componentes da plataforma são protegidos por direitos de propriedade intelectual.",
-          "Você pode usar o serviço para fins pessoais, respeitando estes Termos, sem copiar, revender, ou explorar comercialmente partes da plataforma sem autorização.",
+          "Você pode usar o serviço para fins pessoais, respeitando estes Termos, sem copiar, revender ou explorar comercialmente partes da plataforma sem autorização.",
         ],
       },
     ],
@@ -141,14 +141,14 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         title: "1. Quais dados podemos tratar",
         paragraphs: [
           "Tratamos dados necessários para criar e manter sua conta, operar a plataforma e cumprir obrigações legais e de segurança.",
-          "As categorias podem incluir dados cadastrais (ex.: nome, e-mail, telefone), dados de autenticação, registros de acesso e histórico operacional (depósitos, saques, operações e eventos de segurança).",
+          "As categorias podem incluir dados cadastrais (ex.: nome, e-mail e telefone), dados de autenticação, registros de acesso e histórico operacional (depósitos, saques, operações e eventos de segurança).",
           "Em alguns casos, podemos tratar dados para verificação e prevenção a fraudes, inclusive dados exigidos por provedores de pagamento e regras de compliance, quando aplicável.",
         ],
       },
       {
         title: "2. Finalidades do tratamento",
         paragraphs: [
-          "Usamos dados para fornecer o serviço, manter integridade das operações e reduzir riscos de fraude e incidentes.",
+          "Usamos dados para fornecer o serviço, manter a integridade das operações e reduzir riscos de fraudes e incidentes.",
         ],
         bullets: [
           "Criar e gerenciar sua conta, autenticação e sessões.",
@@ -161,7 +161,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
       {
         title: "3. Bases legais e compartilhamento",
         paragraphs: [
-          "O tratamento pode ocorrer por necessidade de execução de contrato, cumprimento de obrigação legal/regulatória, legítimo interesse (como segurança e prevenção a fraude) e/ou consentimento quando aplicável.",
+          "O tratamento pode ocorrer por necessidade de execução de contrato, cumprimento de obrigação legal/regulatória, legítimo interesse (como segurança e prevenção a fraudes) e/ou consentimento, quando aplicável.",
           "Podemos compartilhar dados com provedores essenciais (ex.: pagamento, infraestrutura, antifraude e comunicação) somente na medida necessária para prestar o serviço e proteger a plataforma.",
           "Não vendemos seus dados. O compartilhamento ocorre com finalidade específica, segurança e controles apropriados.",
         ],
@@ -170,21 +170,21 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         title: "4. Segurança, retenção e armazenamento",
         paragraphs: [
           "Adotamos medidas técnicas e organizacionais para proteger dados contra acesso não autorizado, perda e uso indevido.",
-          "Mantemos registros e logs por tempo necessário para segurança, auditoria, prevenção a fraudes, obrigações legais e melhoria do serviço.",
-          "O tempo de retenção pode variar conforme tipo de dado, obrigação aplicável e necessidade legítima de segurança.",
+          "Mantemos registros e logs pelo tempo necessário para segurança, auditoria, prevenção a fraudes, obrigações legais e melhoria do serviço.",
+          "O tempo de retenção pode variar conforme o tipo de dado, obrigação aplicável e necessidade legítima de segurança.",
         ],
       },
       {
         title: "5. Cookies e tecnologias semelhantes",
         paragraphs: [
-          "Podemos utilizar cookies e tecnologias semelhantes para manter sessão, autenticar acessos, prevenir fraude e melhorar experiência.",
+          "Podemos utilizar cookies e tecnologias semelhantes para manter sessão, autenticar acessos, prevenir fraudes e melhorar a experiência.",
           "Você pode controlar cookies pelo navegador, mas certas funcionalidades podem depender deles para operar corretamente.",
         ],
       },
       {
         title: "6. Seus direitos e contato",
         paragraphs: [
-          "Você pode solicitar acesso, correção, atualização, portabilidade, anonimização ou exclusão quando aplicável, além de informações sobre o tratamento.",
+          "Você pode solicitar acesso, correção, atualização, portabilidade, anonimização ou exclusão, quando aplicável, além de informações sobre o tratamento.",
           "Solicitações podem exigir validação de identidade para proteger sua conta e evitar fraudes. Responderemos dentro de prazos legais e razoáveis.",
         ],
       },
@@ -228,7 +228,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
       },
       {
         title: "5. Uso responsável",
-        paragraphs: [
+       paragraphs: [
           "Opere com valores que não comprometam seu orçamento e evite decisões impulsivas.",
           "Defina limite de aporte e limite de perda antes de abrir posições e considere diversificação e disciplina como práticas essenciais.",
         ],
@@ -285,7 +285,7 @@ export const LEGAL_PAGE_CONTENT: Record<LegalPageKey, LegalPageContent> = {
         title: "6. Contestação e revisão (quando aplicável)",
         paragraphs: [
           "Quando previsto nas regras do mercado, pode existir um processo de revisão baseado em evidências e no cumprimento estrito do critério publicado.",
-          "A contestação avalia fatos verificáveis e aplicação das regras — não preferências pessoais ou expectativas do operador.",
+          "A contestação avalia fatos verificáveis e a aplicação das regras — não preferências pessoais ou expectativas do operador.",
         ],
       },
     ],
